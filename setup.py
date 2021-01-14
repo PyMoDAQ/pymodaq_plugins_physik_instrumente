@@ -1,31 +1,21 @@
-from plugin_info import SHORT_PLUGIN_NAME, packages_required, package_url, author_email, author, description
-PLUGIN_NAME = f'pymodaq_plugins_{SHORT_PLUGIN_NAME}'
+from setuptools import setup, find_packages
+import toml
+from pymodaq_plugins_physik_instrumente import version
 
-
-import importlib
-import sys
-try:
-    import setuptools
-    from setuptools import setup, find_packages
-    from setuptools.command import install
-except ImportError:
-    sys.stderr.write("Warning: could not import setuptools; falling back to distutils.\n")
-    from distutils.core import setup
-    from distutils.command import install
-
-version = importlib.import_module('.version', PLUGIN_NAME)
+config = toml.load('./plugin_info.toml')
+PLUGIN_NAME = f"pymodaq_plugins_{config['plugin-info']['SHORT_PLUGIN_NAME']}"
 
 with open('README.rst') as fd:
     long_description = fd.read()
 
 setupOpts = dict(
     name=PLUGIN_NAME,
-    description=description,
+    description=config['plugin-info']['description'],
     long_description=long_description,
-    license='CECILL B',
-    url=package_url,
-    author=author,
-    author_email=author_email,
+    license=config['plugin-info']['license'],
+    url=config['plugin-info']['package-url'],
+    author=config['plugin-info']['author'],
+    author_email=config['plugin-info']['author-email'],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Development Status :: 5 - Production/Stable",
@@ -45,10 +35,10 @@ setup(
     packages=find_packages(),
     package_data={'': ['*.dll']},
     include_package_data=True,
-    entry_points={'pymodaq.plugins': f'{SHORT_PLUGIN_NAME} = {PLUGIN_NAME}'},
-    install_requires=[
+    entry_points={'pymodaq.plugins': f'default = {PLUGIN_NAME}'},
+    install_requires=['toml',
         'pymodaq>=2.0',
-        ]+packages_required,
+        ]+config['plugin-install']['packages-required'],
     **setupOpts
 )
 
