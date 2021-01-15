@@ -15,7 +15,7 @@ from pymodaq.daq_move.utility_classes import comon_parameters
 from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo
 from easydict import EasyDict as edict
 
-from pymodaq_plugins.hardware.PI.mmc_wrapper import MMC_Wrapper
+from ..hardware.PI.mmc_wrapper import MMC_Wrapper
 
 #is64bit = sys.maxsize > 2**32
 if (sys.maxsize > 2**32):
