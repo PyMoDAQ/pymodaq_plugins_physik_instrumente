@@ -17,9 +17,10 @@ class MMC_Wrapper(object):
     aliases = []
     ports = []
     for key in ress.keys():
-        if 'COM' in ress[key].alias:
-            aliases.append(ress[key].alias)
-            ports.append(ress[key].interface_board_number)
+        if ress[key].alias is not None:
+            if 'COM' in ress[key].alias:
+                aliases.append(ress[key].alias)
+                ports.append(ress[key].interface_board_number)
 
     baudrates = [9600, 19200]
 
