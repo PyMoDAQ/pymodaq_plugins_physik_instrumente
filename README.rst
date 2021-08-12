@@ -12,7 +12,7 @@ pymodaq_plugins_physik_instrumente (Physik Instrumente Stages)
 .. image:: https://github.com/CEMES-CNRS/pymodaq_plugins_physik_instrumente/workflows/Upload%20Python%20Package/badge.svg
     :target: https://github.com/CEMES-CNRS/pymodaq_plugins_physik_instrumente
 
-PyMoDAQ plugin for Actuators from Physik Instumente (All the ones compatible with the GCS2 commands as well as the old
+PyMoDAQ plugin for actuators from Physik Instumente (All the ones compatible with the GCS2 commands as well as the old
 32bits MMC controller...)
 
 Authors
