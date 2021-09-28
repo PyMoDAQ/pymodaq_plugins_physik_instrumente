@@ -3,7 +3,7 @@ from ctypes import windll, create_string_buffer, POINTER, byref, pointer
 from ctypes import c_uint, c_int, c_char, c_char_p, c_void_p, c_short, c_long, c_bool, c_double, c_uint64, c_uint32, Array, CFUNCTYPE, WINFUNCTYPE
 from ctypes import c_ushort, c_ulong, c_float
 import os
-from visa import ResourceManager
+from pyvisa import ResourceManager
 from bitstring import Bits
 
 class MMC_Wrapper(object):
