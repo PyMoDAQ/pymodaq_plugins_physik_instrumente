@@ -47,15 +47,15 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
     is_multiaxes=False
     stage_names=[]
 
-    params= [{'title': 'COM Ports:', 'name': 'com_port', 'type': 'list', 'values': com_ports},
-           {'title': 'Controller_address:', 'name': 'controller_address', 'type': 'list', 'values': controller_addresses},
-           {'title': 'Stages:', 'name': 'stage', 'type': 'list', 'values': list(MMC_Wrapper.stages.keys())},
+    params= [{'title': 'COM Ports:', 'name': 'com_port', 'type': 'list', 'limits': com_ports},
+           {'title': 'Controller_address:', 'name': 'controller_address', 'type': 'list', 'limits': controller_addresses},
+           {'title': 'Stages:', 'name': 'stage', 'type': 'list', 'limits': list(MMC_Wrapper.stages.keys())},
            {'title': 'Closed loop?:', 'name': 'closed_loop', 'type': 'bool', 'value': True},
            {'title': 'Controller ID:', 'name': 'controller_id', 'type': 'str', 'value': '', 'readonly': True},
            {'title': 'MultiAxes:', 'name': 'multiaxes', 'type': 'group','visible':is_multiaxes, 'children':[
                     {'title': 'is Multiaxes:', 'name': 'ismultiaxes', 'type': 'bool', 'value': is_multiaxes, 'default': False},
-                    {'title': 'Status:', 'name': 'multi_status', 'type': 'list', 'value': 'Master', 'values': ['Master','Slave']},
-                    {'title': 'Axis:', 'name': 'axis', 'type': 'list',  'values':stage_names},
+                    {'title': 'Status:', 'name': 'multi_status', 'type': 'list', 'value': 'Master', 'limits': ['Master','Slave']},
+                    {'title': 'Axis:', 'name': 'axis', 'type': 'list',  'limits':stage_names},
 
                     ]}]+comon_parameters
 

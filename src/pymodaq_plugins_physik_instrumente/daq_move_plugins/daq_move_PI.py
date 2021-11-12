@@ -66,8 +66,8 @@ class DAQ_Move_PI(DAQ_Move_base):
     stage_names = []
 
     params = [{'title': 'GCS2 library:', 'name': 'gcs_lib', 'type': 'browsepath', 'value': os.path.join(GCS_path_tmp,dll_name), 'filetype': True},
-           {'title': 'Connection_type:', 'name': 'connect_type', 'type': 'list', 'value':'USB', 'values': ['USB', 'TCP/IP' , 'RS232']},
-           {'title': 'Devices:', 'name': 'devices', 'type': 'list', 'values': devices},
+           {'title': 'Connection_type:', 'name': 'connect_type', 'type': 'list', 'value':'USB', 'limits': ['USB', 'TCP/IP' , 'RS232']},
+           {'title': 'Devices:', 'name': 'devices', 'type': 'list', 'limits': devices},
            {'title': 'Daisy Chain Options:', 'name': 'dc_options', 'type': 'group', 'children': [
                {'title': 'Use Daisy Chain:', 'name': 'is_daisy', 'type': 'bool', 'value': False},
                {'title': 'Is master?:', 'name': 'is_daisy_master', 'type': 'bool', 'value': False},
@@ -80,8 +80,8 @@ class DAQ_Move_PI(DAQ_Move_base):
            #{'title': 'Stage address:', 'name': 'axis_address', 'type': 'list'},
           {'title': 'MultiAxes:', 'name': 'multiaxes', 'type': 'group','visible':is_multiaxes, 'children':[
                     {'title': 'is Multiaxes:', 'name': 'ismultiaxes', 'type': 'bool', 'value': is_multiaxes, 'default': False},
-                    {'title': 'Status:', 'name': 'multi_status', 'type': 'list', 'value': 'Master', 'values': ['Master','Slave']},
-                    {'title': 'Axis:', 'name': 'axis', 'type': 'list',  'values': stage_names},
+                    {'title': 'Status:', 'name': 'multi_status', 'type': 'list', 'value': 'Master', 'limits': ['Master','Slave']},
+                    {'title': 'Axis:', 'name': 'axis', 'type': 'list',  'limits': stage_names},
 
                     ]}]+comon_parameters
 
