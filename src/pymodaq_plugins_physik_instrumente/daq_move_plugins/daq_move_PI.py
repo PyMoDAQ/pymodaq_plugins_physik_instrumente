@@ -1,4 +1,4 @@
-from pymodaq.daq_move.utility_classes import DAQ_Move_base
+from pymodaq.control_modules.move_utility_classes import DAQ_Move_base
 from pymodaq.daq_move.utility_classes import comon_parameters
 import os
 from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo

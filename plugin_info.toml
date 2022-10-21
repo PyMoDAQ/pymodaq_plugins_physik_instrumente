@@ -4,7 +4,7 @@
 SHORT_PLUGIN_NAME = 'physik_instrumente'  #to be modified, for instance daqmx then rename the module name:
 # (pymodaq_plugins_demo become pymodaq_plugins_daqmx for instance)
 
-package-url = 'https://github.com/CEMES-CNRS/pymodaq_plugins_physik_instrumente' #to modify
+package-url = 'https://github.com/PyMoDAQ/pymodaq_plugins_physik_instrumente' #to modify
 description = 'Set of PyMoDAQ plugins for Actuators from Physik Instumente (All the ones compatible with the GCS2 commands as well as the old 32bits MMC controller...)'
 
 author = 'Sebastien Weber'
