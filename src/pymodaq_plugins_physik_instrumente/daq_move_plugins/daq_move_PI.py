@@ -6,7 +6,7 @@ from pipython import GCSDevice
 import serial.tools.list_ports as list_ports
 
 from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main
-from pymodaq.daq_move.utility_classes import comon_parameters
+from pymodaq.daq_move.utility_classes import comon_parameters_fun
 from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo
 from pymodaq.daq_utils.parameter.utils import iter_children
 
@@ -40,6 +40,7 @@ class DAQ_Move_PI(DAQ_Move_base):
     devices.extend([str(port) for port in list(list_ports.comports())])
     is_multiaxes = True
     stage_names = []
+    _epsilon = 0.01
 
     params = [
         {'title': 'Connection_type:', 'name': 'connect_type', 'type': 'list',
@@ -54,17 +55,11 @@ class DAQ_Move_PI(DAQ_Move_base):
         {'title': 'Use Joystick:', 'name': 'use_joystick', 'type': 'bool', 'value': False},
         {'title': 'Closed loop?:', 'name': 'closed_loop', 'type': 'bool', 'value': True},
         {'title': 'Controller ID:', 'name': 'controller_id', 'type': 'str', 'value': '', 'readonly': True},
-        {'title': 'MultiAxes:', 'name': 'multiaxes', 'type': 'group', 'visible': is_multiaxes, 'children': [
-            {'title': 'is Multiaxes:', 'name': 'ismultiaxes', 'type': 'bool', 'value': is_multiaxes, 'default': False},
-            {'title': 'Status:', 'name': 'multi_status', 'type': 'list', 'value': 'Master',
-             'limits': ['Master', 'Slave']},
-            {'title': 'Axis:', 'name': 'axis', 'type': 'list', 'limits': stage_names},
-            ]},
         {'title': 'Axis Info:', 'name': 'axis_infos', 'type': 'group', 'children': [
             {'title': 'Min:', 'name': 'min', 'type': 'float'},
             {'title': 'Max:', 'name': 'max', 'type': 'float'},
             ]},
-        ] + comon_parameters
+        ] + comon_parameters_fun(is_multiaxes, stage_names, epsilon=_epsilon)
 
     def ini_attributes(self):
         self.controller: GCSDevice = None
@@ -172,7 +167,11 @@ class DAQ_Move_PI(DAQ_Move_base):
             self.controller.qSVO(self.controller.axes[0])[self.controller.axes[0]])
 
         self.set_axis_limits(self.get_axis_limits())
-        self.settings.child('epsilon').setValue(0.01)
+
+        # get units
+        if hasattr(self.controller, 'qSPA'):
+            self.controller_units = \
+                self.controller.qSPA(self.controller.axes[0], 0x07000601)[self.controller.axes[0]][0x07000601]
 
         info = "connected on device:{} /".format(self.device) + self.controller.qIDN()
         initialized = True
