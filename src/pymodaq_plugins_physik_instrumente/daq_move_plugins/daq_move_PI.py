@@ -6,9 +6,9 @@ from pipython import GCSDevice
 import serial.tools.list_ports as list_ports
 
 from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main
-from pymodaq.daq_move.utility_classes import comon_parameters_fun
-from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo
-from pymodaq.daq_utils.parameter.utils import iter_children
+from pymodaq.daq_move.utility_classes import comon_parameters_fun, main
+from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
+from pymodaq.utils.parameter.utils import iter_children
 
 
 class DAQ_Move_PI(DAQ_Move_base):

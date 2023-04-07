@@ -10,18 +10,18 @@ C-170 Redstone PILine® Controller
 
 import sys, os
 from qtpy.QtCore import QThread
-from pymodaq.control_modules.move_utility_classes import DAQ_Move_base
-from pymodaq.daq_move.utility_classes import comon_parameters
-from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo
+from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, comon_parameters_fun, main
+from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
 from easydict import EasyDict as edict
 
-from ..hardware.PI.mmc_wrapper import MMC_Wrapper
+from pymodaq_plugins_physik_instrumente.hardware.PI.mmc_wrapper import MMC_Wrapper
 
 #is64bit = sys.maxsize > 2**32
 if (sys.maxsize > 2**32):
     raise Exception("It must a python 32 bit version")
 
 ports = MMC_Wrapper.ports
+
 
 class DAQ_Move_PI_MMC(DAQ_Move_base):
     """
@@ -52,12 +52,7 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
            {'title': 'Stages:', 'name': 'stage', 'type': 'list', 'limits': list(MMC_Wrapper.stages.keys())},
            {'title': 'Closed loop?:', 'name': 'closed_loop', 'type': 'bool', 'value': True},
            {'title': 'Controller ID:', 'name': 'controller_id', 'type': 'str', 'value': '', 'readonly': True},
-           {'title': 'MultiAxes:', 'name': 'multiaxes', 'type': 'group','visible':is_multiaxes, 'children':[
-                    {'title': 'is Multiaxes:', 'name': 'ismultiaxes', 'type': 'bool', 'value': is_multiaxes, 'default': False},
-                    {'title': 'Status:', 'name': 'multi_status', 'type': 'list', 'value': 'Master', 'limits': ['Master','Slave']},
-                    {'title': 'Axis:', 'name': 'axis', 'type': 'list',  'limits':stage_names},
-
-                    ]}]+comon_parameters
+           ] + comon_parameters_fun(is_multiaxes, stage_names, epsilon=_epsilon)
 
 
 
@@ -239,3 +234,5 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
         self.check_position()
 
 
+if __name__ == '__main__':
+    main(__file__, init=True)
