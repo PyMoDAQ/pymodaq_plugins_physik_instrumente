@@ -1,13 +1,25 @@
+import sys
 from typing import Tuple
 
 import numpy as np
 from easydict import EasyDict as edict
-from pipython import GCSDevice
+from pipython import GCSDevice, GCSError
+
 import serial.tools.list_ports as list_ports
 
 from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main, comon_parameters_fun
 from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
 from pymodaq.utils.parameter.utils import iter_children
+from pymodaq.utils.daq_utils import is_64bits
+
+dll_in_testing_order = ['PI_GCS2_DLL', 'E816_DLL']  #dll to use in order to get the list of connected devices
+# one could add some other dll, see below is using some old controller
+
+
+if is_64bits():
+    dll_in_testing_order = [f'{dll_name}_x64.dll' for dll_name in dll_in_testing_order]
+else:
+    dll_in_testing_order = [f'{dll_name}.dll' for dll_name in dll_in_testing_order]
 
 
 class DAQ_Move_PI(DAQ_Move_base):
@@ -32,9 +44,11 @@ class DAQ_Move_PI(DAQ_Move_base):
     """
 
     _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using self.controller_units = new_unit
-    gcs_device = GCSDevice()
-    devices = gcs_device.EnumerateUSB()
-    devices.extend(gcs_device.EnumerateTCPIPDevices())
+    devices = []
+    for dll_name in dll_in_testing_order:
+        gcs_device = GCSDevice(gcsdll=dll_name)
+        devices.extend(gcs_device.EnumerateUSB())
+        devices.extend(gcs_device.EnumerateTCPIPDevices())
 
     devices.extend([str(port) for port in list(list_ports.comports())])
     is_multiaxes = True
@@ -43,7 +57,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     params = [
         {'title': 'Connection_type:', 'name': 'connect_type', 'type': 'list',
-         'value':'USB', 'values': ['USB', 'TCP/IP' , 'RS232']},
+         'value':'USB', 'values': ['USB', 'TCP/IP', 'RS232']},
         {'title': 'Devices:', 'name': 'devices', 'type': 'list', 'values': devices},
         {'title': 'Daisy Chain Options:', 'name': 'dc_options', 'type': 'group', 'children': [
             {'title': 'Use Daisy Chain:', 'name': 'is_daisy', 'type': 'bool', 'value': False},
@@ -93,12 +107,12 @@ class DAQ_Move_PI(DAQ_Move_base):
                 pass
             elif param.name() == 'axis' and param.name() in iter_children(self.settings.child('multiaxes')):
                 self.settings.child('closed_loop').setValue(self.controller.qSVO(param.value())[param.value()])
-                self.set_referencing(self.settings['multiaxes', 'axis'])
+                self.set_referencing(self.axis_name)
                 self.set_axis_limits(self.get_axis_limits())
 
             elif param.name() == 'closed_loop':
-                axe = self.settings.child('multiaxes', 'axis').value()
-                if self.controller.qSVO(axe)[axe] != self.settings.child(('closed_loop')).value():
+                axe = self.axis_name
+                if self.controller.qSVO(axe)[axe] != self.settings['closed_loop']:
                     self.controller.SVO(axe, param.value())
 
         except Exception as e:
@@ -157,20 +171,27 @@ class DAQ_Move_PI(DAQ_Move_base):
             self.connect_device()
 
         self.settings.child('controller_id').setValue(self.controller.qIDN())
-        self.settings.child('multiaxes', 'axis').setLimits(self.controller.axes)
+        self.axis_names = self.controller.axes
 
-        self.set_referencing(self.controller.axes[0])
+        self.set_referencing(self.axis_name)
 
         # check servo status:
         self.settings.child('closed_loop').setValue(
             self.controller.qSVO(self.controller.axes[0])[self.controller.axes[0]])
 
-        self.set_axis_limits(self.get_axis_limits())
-
-        # get units
-        if hasattr(self.controller, 'qSPA'):
-            self.controller_units = \
-                self.controller.qSPA(self.controller.axes[0], 0x07000601)[self.controller.axes[0]][0x07000601]
+        try:
+            self.set_axis_limits(self.get_axis_limits())
+        except GCSError:
+            # library not compatible with this set of commands
+            pass
+        try:
+            # get units (experimental)
+            if hasattr(self.controller, 'qSPA'):
+                self.controller_units = \
+                    self.controller.qSPA(self.controller.axes[0], 0x07000601)[self.controller.axes[0]][0x07000601]
+        except GCSError:
+            # library not compatible with this set of commands
+            pass
 
         info = "connected on device:{} /".format(self.device) + self.controller.qIDN()
         initialized = True
@@ -178,11 +199,11 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     def get_axis_limits(self):
         if hasattr(self.controller, 'qTMN'):
-            min_val = self.controller.qTMN(self.settings['multiaxes', 'axis'])[self.settings['multiaxes', 'axis']]
+            min_val = self.controller.qTMN(self.axis_name)[self.axis_name]
         else:
             min_val = np.NaN
         if hasattr(self.controller, 'qTMX'):
-            max_val = self.controller.qTMX(self.settings['multiaxes', 'axis'])[self.settings['multiaxes', 'axis']]
+            max_val = self.controller.qTMX(self.axis_name)[self.axis_name]
         else:
             max_val = np.NaN
         return min_val, max_val
@@ -264,8 +285,7 @@ class DAQ_Move_PI(DAQ_Move_base):
             --------
             DAQ_Move_base.get_position_with_scaling, daq_utils.ThreadCommand
         """
-        pos_dict = self.controller.qPOS(self.settings.child('multiaxes', 'axis').value())
-        pos = pos_dict[self.settings.child('multiaxes', 'axis').value()]
+        pos = self.controller.qPOS(self.axis_name)[self.axis_name]
         pos = self.get_position_with_scaling(pos)
         return pos
 
@@ -273,11 +293,10 @@ class DAQ_Move_PI(DAQ_Move_base):
         """
 
         """
-
         position = self.check_bound(position)
         self.target_position = position
         position = self.set_position_with_scaling(position)
-        out = self.controller.MOV(self.settings['multiaxes', 'axis'], position)
+        out = self.controller.MOV(self.axis_name, position)
 
     def move_rel(self, position):
         """
@@ -289,7 +308,7 @@ class DAQ_Move_PI(DAQ_Move_base):
         position = self.set_position_relative_with_scaling(position)
 
         if self.controller.HasMVR():
-            out = self.controller.MVR(self.settings.child('multiaxes', 'axis').value(), position)
+            out = self.controller.MVR(self.axis_name, position)
         else:
             self.move_abs(self.target_position)
 
@@ -300,14 +319,15 @@ class DAQ_Move_PI(DAQ_Move_base):
             --------
             DAQ_Move_PI.set_referencing, DAQ_Move_base.poll_moving
         """
-        self.set_referencing(self.settings.child('multiaxes', 'axis').value())
+        self.set_referencing(self.axis_name)
         if self.controller.HasGOH():
-            self.controller.GOH(self.settings.child('multiaxes', 'axis').value())
+            self.controller.GOH(self.axis_name)
         elif self.controller.HasFRF():
-            self.controller.FRF(self.settings.child('multiaxes', 'axis').value())
+            self.controller.FRF(self.axis_name)
         else:
             self.move_abs(0)
 
 
 if __name__ == '__main__':
     main(__file__, init=False)
+
