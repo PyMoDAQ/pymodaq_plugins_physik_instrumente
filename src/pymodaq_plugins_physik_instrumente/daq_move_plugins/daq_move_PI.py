@@ -12,8 +12,9 @@ from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
 from pymodaq.utils.parameter.utils import iter_children
 from pymodaq.utils.daq_utils import is_64bits
 
-dll_in_testing_order = ['PI_GCS2_DLL', 'E816_DLL']  #dll to use in order to get the list of connected devices
-# one could add some other dll, see below is using some old controller
+dll_in_testing_order = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order to get
+# the list of connected devices
+# one could add some other dll, see below if using some old controller
 
 
 if is_64bits():
