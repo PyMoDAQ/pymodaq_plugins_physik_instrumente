@@ -13,5 +13,5 @@ license = 'MIT'
 
 [plugin-install]
 #packages required for your plugin:
-packages-required = ['pipython', 'bitstring']
+packages-required = ['pipython', 'bitstring', 'pymodaq>=4.0.7']
 
