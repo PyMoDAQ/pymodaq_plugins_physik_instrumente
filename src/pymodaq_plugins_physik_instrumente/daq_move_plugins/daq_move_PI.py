@@ -2,8 +2,10 @@ import sys
 from typing import Tuple
 
 import numpy as np
+import os
 from easydict import EasyDict as edict
 from pipython import GCSDevice, GCSError
+from pipython.pidevice.interfaces.gcsdll import get_gcstranslator_dir
 
 import serial.tools.list_ports as list_ports
 
@@ -12,15 +14,19 @@ from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
 from pymodaq.utils.parameter.utils import iter_children
 from pymodaq.utils.daq_utils import is_64bits
 
-dll_in_testing_order = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order to get
+dll_names = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order to get
 # the list of connected devices
 # one could add some other dll, see below if using some old controller
 
+dll_in_testing_order = []
 
-if is_64bits():
-    dll_in_testing_order = [f'{dll_name}_x64.dll' for dll_name in dll_in_testing_order]
-else:
-    dll_in_testing_order = [f'{dll_name}.dll' for dll_name in dll_in_testing_order]
+for dll_name in dll_names:
+    if is_64bits():
+        filename = f'{dll_name}_x64.dll'
+    else:
+        filename = f'{dll_name}.dll'
+    if os.path.exists(get_gcstranslator_dir() + filename):
+        dll_in_testing_order.append(filename)
 
 
 class DAQ_Move_PI(DAQ_Move_base):
