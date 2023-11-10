@@ -10,9 +10,9 @@ from pipython.pidevice.interfaces.gcsdll import get_gcstranslator_dir
 import serial.tools.list_ports as list_ports
 
 from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main, comon_parameters_fun
-from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
+from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
 from pymodaq.utils.parameter.utils import iter_children
-from pymodaq.utils.daq_utils import is_64bits
+
 
 dll_names = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order to get
 # the list of connected devices
@@ -51,13 +51,17 @@ class DAQ_Move_PI(DAQ_Move_base):
     """
 
     _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using self.controller_units = new_unit
-    devices = []
+    devices = {}
     for dll_name in dll_in_testing_order:
         gcs_device = GCSDevice(gcsdll=dll_name)
-        devices.extend(gcs_device.EnumerateUSB())
-        devices.extend(gcs_device.EnumerateTCPIPDevices())
+        _devices = []
+        _devices.extend(gcs_device.EnumerateUSB())
+        _devices.extend(gcs_device.EnumerateTCPIPDevices())
+        for dev in _devices:
+            devices[dev] = dll_name
 
-    devices.extend([str(port) for port in list(list_ports.comports())])
+    devices.update({str(port.name): 'serial' for port in list(list_ports.comports())})
+
     is_multiaxes = True
     stage_names = []
     _epsilon = 0.01
@@ -65,7 +69,7 @@ class DAQ_Move_PI(DAQ_Move_base):
     params = [
         {'title': 'Connection_type:', 'name': 'connect_type', 'type': 'list',
          'value':'USB', 'values': ['USB', 'TCP/IP', 'RS232']},
-        {'title': 'Devices:', 'name': 'devices', 'type': 'list', 'values': devices},
+        {'title': 'Devices:', 'name': 'devices', 'type': 'list', 'limits': devices},
         {'title': 'Daisy Chain Options:', 'name': 'dc_options', 'type': 'group', 'children': [
             {'title': 'Use Daisy Chain:', 'name': 'is_daisy', 'type': 'bool', 'value': False},
             {'title': 'Is master?:', 'name': 'is_daisy_master', 'type': 'bool', 'value': False},
@@ -136,9 +140,9 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         try:
             self.close()
-        except:
+        except Exception as e:
             pass
-        return GCSDevice()
+        return GCSDevice(gcsdll=self.settings['devices'])
 
     def connect_device(self):
         if not self.settings['dc_options', 'is_daisy']:  # simple connection
@@ -173,7 +177,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         """
         self.ini_stage_init(old_controller=controller, new_controller=self.ini_device())
-        self.device = self.settings['devices']
+        self.device = find_keys_from_val(self.settings.child('devices').opts['limits'], self.settings['devices'])[0]
         if self.settings['multiaxes', 'multi_status'] == "Master":
             self.connect_device()
 
