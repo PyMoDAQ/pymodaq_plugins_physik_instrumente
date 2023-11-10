@@ -1,9 +1,8 @@
 from pipython import GCSDevice
 
-from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main
-from pymodaq.daq_move.utility_classes import comon_parameters_fun
-from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo
-from pymodaq.daq_utils.parameter.utils import iter_children
+from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main, comon_parameters_fun
+from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
+from pymodaq.utils.parameter.utils import iter_children
 
 
 class DAQ_Move_PI_E870(DAQ_Move_base):
