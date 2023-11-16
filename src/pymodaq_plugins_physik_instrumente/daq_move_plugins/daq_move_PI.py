@@ -1,5 +1,6 @@
 import sys
 from typing import Tuple
+from pathlib import Path
 
 import numpy as np
 import os
@@ -14,18 +15,21 @@ from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_
 from pymodaq.utils.parameter.utils import iter_children
 
 
-dll_names = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order to get
-# the list of connected devices
-# one could add some other dll, see below if using some old controller
+from pymodaq_plugins_physik_instrumente.utils import Config
+
+config = Config()
+
+
+possible_dll_names = config['dll_names']
 
 dll_in_testing_order = []
 
-for dll_name in dll_names:
+for dll_name in possible_dll_names:
     if is_64bits():
         filename = f'{dll_name}_x64.dll'
     else:
         filename = f'{dll_name}.dll'
-    if os.path.exists(get_gcstranslator_dir() + filename):
+    if Path(get_gcstranslator_dir()).joinpath(filename).is_file():
         dll_in_testing_order.append(filename)
 
 
@@ -51,16 +55,19 @@ class DAQ_Move_PI(DAQ_Move_base):
     """
 
     _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using self.controller_units = new_unit
-    devices = {}
+    devices = []
+    dll_names = []
     for dll_name in dll_in_testing_order:
         gcs_device = GCSDevice(gcsdll=dll_name)
         _devices = []
         _devices.extend(gcs_device.EnumerateUSB())
         _devices.extend(gcs_device.EnumerateTCPIPDevices())
         for dev in _devices:
-            devices[dev] = dll_name
+            dll_names.append(dll_name)
 
-    devices.update({str(port.name): 'serial' for port in list(list_ports.comports())})
+    com_ports = list(list_ports.comports())
+    devices.extend([str(port.name) for port in com_ports])
+    dll_names.extend(['serial' for port in com_ports])
 
     is_multiaxes = True
     stage_names = []
@@ -142,7 +149,8 @@ class DAQ_Move_PI(DAQ_Move_base):
             self.close()
         except Exception as e:
             pass
-        return GCSDevice(gcsdll=self.settings['devices'])
+        index = self.devices.index(self.settings['devices'])
+        return GCSDevice(gcsdll=self.dll_names[index])
 
     def connect_device(self):
         if not self.settings['dc_options', 'is_daisy']:  # simple connection
