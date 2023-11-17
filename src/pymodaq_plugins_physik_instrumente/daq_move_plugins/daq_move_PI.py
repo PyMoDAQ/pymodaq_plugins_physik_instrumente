@@ -29,8 +29,27 @@ for dll_name in possible_dll_names:
         filename = f'{dll_name}_x64.dll'
     else:
         filename = f'{dll_name}.dll'
-    if Path(get_gcstranslator_dir()).joinpath(filename).is_file():
+    file_path = Path(get_gcstranslator_dir()).joinpath(filename)
+    if file_path.is_file():
         dll_in_testing_order.append(filename)
+        os.add_dll_directory(str(file_path.parent))
+
+devices = []
+dll_names = []
+devices_name = []
+for _dll_name in dll_in_testing_order:
+    gcs_device = GCSDevice(gcsdll=_dll_name)
+    _devices = []
+    _devices.extend(gcs_device.EnumerateUSB())
+    _devices.extend(gcs_device.EnumerateTCPIPDevices())
+    for dev in _devices:
+        dll_names.append(_dll_name)
+        devices.append(f'{dev}/{_dll_name}')
+    devices_name.extend(_devices)
+
+com_ports = list(list_ports.comports())
+devices.extend([str(port.name) for port in com_ports])
+dll_names.extend(['serial' for port in com_ports])
 
 
 class DAQ_Move_PI(DAQ_Move_base):
@@ -56,20 +75,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using
     # self.controller_units = new_unit
-    devices = []
-    dll_names = []
-    for dll_name in dll_in_testing_order:
-        gcs_device = GCSDevice(gcsdll=dll_name)
-        _devices = []
-        _devices.extend(gcs_device.EnumerateUSB())
-        _devices.extend(gcs_device.EnumerateTCPIPDevices())
-        for dev in _devices:
-            dll_names.append(dll_name)
-    devices.extend(_devices)
 
-    com_ports = list(list_ports.comports())
-    devices.extend([str(port.name) for port in com_ports])
-    dll_names.extend(['serial' for port in com_ports])
 
     is_multiaxes = True
     stage_names = []
@@ -77,7 +83,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     params = [
         {'title': 'Connection_type:', 'name': 'connect_type', 'type': 'list',
-         'value':'USB', 'values': ['USB', 'TCP/IP', 'RS232']},
+         'value': 'USB', 'values': ['USB', 'TCP/IP', 'RS232']},
         {'title': 'Devices:', 'name': 'devices', 'type': 'list', 'limits': devices},
         {'title': 'Daisy Chain Options:', 'name': 'dc_options', 'type': 'group', 'children': [
             {'title': 'Use Daisy Chain:', 'name': 'is_daisy', 'type': 'bool', 'value': False},
@@ -138,21 +144,17 @@ class DAQ_Move_PI(DAQ_Move_base):
         except Exception as e:
             self.emit_status(ThreadCommand("Update_Status", [getLineInfo() + str(e), 'log']))
 
-    def ini_device(self):
-        """
-            load the correct dll given the chosen device
+    def ini_device(self) -> GCSDevice:
+        """ load the correct dll given the chosen device
 
-            See Also
-            --------
-            DAQ_Move_base.close
         """
 
         try:
             self.close()
         except Exception as e:
             pass
-        index = self.devices.index(self.settings['devices'])
-        return GCSDevice(gcsdll=self.dll_names[index])
+        index = devices.index(self.settings['devices'])
+        return GCSDevice(gcsdll=dll_names[index])
 
     def connect_device(self):
         if not self.settings['dc_options', 'is_daisy']:  # simple connection
@@ -187,7 +189,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         """
         self.ini_stage_init(old_controller=controller, new_controller=self.ini_device())
-        self.device = self.settings['devices']
+        self.device = devices_name[devices.index(self.settings['devices'])]
         if self.settings['multiaxes', 'multi_status'] == "Master":
             self.connect_device()
 
