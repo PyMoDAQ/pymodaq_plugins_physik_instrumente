@@ -1,10 +1,9 @@
-import sys
+
 from typing import Tuple
 from pathlib import Path
 
 import numpy as np
 import os
-from easydict import EasyDict as edict
 from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.gcsdll import get_gcstranslator_dir
 
@@ -32,7 +31,6 @@ for dll_name in possible_dll_names:
     file_path = Path(get_gcstranslator_dir()).joinpath(filename)
     if file_path.is_file():
         dll_in_testing_order.append(filename)
-        os.add_dll_directory(str(file_path.parent))
 
 devices = []
 dll_names = []
