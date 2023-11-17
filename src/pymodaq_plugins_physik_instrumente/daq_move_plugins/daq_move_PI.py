@@ -54,7 +54,8 @@ class DAQ_Move_PI(DAQ_Move_base):
     'PI_G_GCS2_DLL': ['UNKNOWN', ],
     """
 
-    _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using self.controller_units = new_unit
+    _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using
+    # self.controller_units = new_unit
     devices = []
     dll_names = []
     for dll_name in dll_in_testing_order:
