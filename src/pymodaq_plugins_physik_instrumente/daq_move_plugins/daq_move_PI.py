@@ -64,6 +64,7 @@ class DAQ_Move_PI(DAQ_Move_base):
         _devices.extend(gcs_device.EnumerateTCPIPDevices())
         for dev in _devices:
             dll_names.append(dll_name)
+    devices.extend(_devices)
 
     com_ports = list(list_ports.comports())
     devices.extend([str(port.name) for port in com_ports])
@@ -185,7 +186,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         """
         self.ini_stage_init(old_controller=controller, new_controller=self.ini_device())
-        self.device = find_keys_from_val(self.settings.child('devices').opts['limits'], self.settings['devices'])[0]
+        self.device = self.settings['devices']
         if self.settings['multiaxes', 'multi_status'] == "Master":
             self.connect_device()
 
