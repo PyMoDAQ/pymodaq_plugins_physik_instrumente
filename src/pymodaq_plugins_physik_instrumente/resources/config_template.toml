@@ -1,2 +1,20 @@
 title = "this is the configuration file of the Physik Instrumente plugin"
 
+dll_names = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order to get
+# the list of connected devices
+# one could add some other dll, see below if using some old controller
+#    'PI_GCS2_DLL': ['C-413', 'C-663.11', 'C-863.11', 'C-867', 'C-877', 'C-884', 'C-885', 'C-887',
+#                    'C-891', 'E-517', 'E-518', 'E-545', 'E-709', 'E-712', 'E-723', 'E-725',
+#                    'E-727', 'E-753', 'E-754', 'E-755', 'E-852B0076', 'E-861', 'E-870', 'E-871',
+#                    'E-873', 'C-663.12'],
+#    'C7XX_GCS_DLL': ['C-702', ],
+#    'C843_GCS_DLL': ['C-843', ],
+#    'C848_DLL': ['C-848', ],
+#    'C880_DLL': ['C-880', ],
+#    'E816_DLL': ['E-621', 'E-625', 'E-665', 'E-816', 'E816', ],
+#    'E516_DLL': ['E-516', ],
+#    'PI_Mercury_GCS_DLL': ['C-663.10', 'C-863.10', 'MERCURY', 'MERCURY_GCS1', ],
+#    'PI_HydraPollux_GCS2_DLL': ['HYDRA', 'POLLUX', 'POLLUX2', 'POLLUXNT', ],
+#    'E7XX_GCS_DLL': ['DIGITAL PIEZO CONTROLLER', 'E-710', 'E-761', ],
+#    'HEX_GCS_DLL': ['HEXAPOD', 'HEXAPOD_GCS1', ],
+#    'PI_G_GCS2_DLL': ['UNKNOWN', ],
