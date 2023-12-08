@@ -47,6 +47,7 @@ for _dll_name in dll_in_testing_order:
 
 com_ports = list(list_ports.comports())
 devices.extend([str(port.name) for port in com_ports])
+devices_name.extend([str(port.name) for port in com_ports])
 dll_names.extend(['serial' for port in com_ports])
 
 
@@ -152,7 +153,11 @@ class DAQ_Move_PI(DAQ_Move_base):
         except Exception as e:
             pass
         index = devices.index(self.settings['devices'])
-        return GCSDevice(gcsdll=dll_names[index])
+        gcsdll = dll_names[index]
+        if gcsdll == 'serial':
+            return GCSDevice()
+        else:
+            return GCSDevice(gcsdll=gcsdll)
 
     def connect_device(self):
         if not self.settings['dc_options', 'is_daisy']:  # simple connection
@@ -161,7 +166,7 @@ class DAQ_Move_PI(DAQ_Move_base):
             elif self.settings['connect_type'] == 'TCP/IP':
                 self.controller.ConnectTCPIPByDescription(self.device)
             elif self.settings['connect_type'] == 'RS232':
-                self.controller.ConnectRS232(int(self.device[3:]))
+                self.controller.ConnectRS232(int(self.device[3:]), 19200)
                 # in this case device is a COM port, and one should use 1 for COM1 for instance
 
         else:  # one use a daisy chain connection with a master device and slaves
