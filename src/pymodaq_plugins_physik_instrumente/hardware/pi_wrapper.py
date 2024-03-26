@@ -331,6 +331,18 @@ class PIWrapper:
         self.close()
         return True
 
+    def set_waveform(self, amplitude: float):
+        self.device.WAV_RAMP(1, 0, 16000, 'X', 13000, 150, amplitude, 0, 16000)
+        self.device.WAV_RAMP(2, 0, 1600, 'X', 1300, 150, amplitude, 0, 1600)
+        for _ in range(9):
+            self.device.WAV_RAMP(1, 0, 1600, '&', 1300, 150, amplitude, 0, 1600)
+
+
+
+    def get_servo_cycle_duration(self) -> float:
+        """get the servo cycle duration in seconds"""
+        return self.device.qSPA('1', 0x0E000200)['1'][0x0E000200]
+
 
 if __name__ == '__main__':
 
