@@ -292,7 +292,7 @@ class PIWrapper:
         axis_name: str
         position: float
         """
-        self.device.MOV(self.axis_name, position)
+        self.device.MOV(axis_name, position)
 
     def move_relative(self, axis_name: str, position: float):
         """ Move the specified axis to the given relative position
@@ -303,7 +303,7 @@ class PIWrapper:
         position: float
         """
         if self.device.HasMVR():
-            self.device.MVR(self.axis_name, position)
+            self.device.MVR(axis_name, position)
 
     def move_home(self, axis_name: str):
         """ Move the specified axis to it's home position
@@ -322,7 +322,7 @@ class PIWrapper:
         elif self.device.HasFRF():
             self.device.FRF(axis_name)
         else:
-            self.move_absolute(0)
+            self.move_absolute(axis_name, 0)
 
     def __enter__(self):
         return self
@@ -331,13 +331,25 @@ class PIWrapper:
         self.close()
         return True
 
-    def set_waveform(self, amplitude: float):
+    def set_waveform(self, amplitude: float, rate: int = 1,):
+        self.device.WCL(1)
+        self.device.WCL(2)
         self.device.WAV_RAMP(1, 0, 16000, 'X', 13000, 150, amplitude, 0, 16000)
         self.device.WAV_RAMP(2, 0, 1600, 'X', 1300, 150, amplitude, 0, 1600)
         for _ in range(9):
-            self.device.WAV_RAMP(1, 0, 1600, '&', 1300, 150, amplitude, 0, 1600)
+            self.device.WAV_RAMP(2, 0, 1600, '&', 1300, 150, amplitude, 0, 1600)
 
+        self.device.WSL(1, 1)  # affect axis 1 to wavetable 1
+        self.device.WSL(2, 2)  # affect axis 2 to wavetable 2
 
+        self.device.WTR(0, rate, 1)  # set the rate (multiple of servo cycles)
+
+    def start_waveform(self, wave_generators: List[int], cycles: int = 0):
+        self.device.WGC([1, 2], [cycles, cycles])  # set the number of cycles
+        self.device.WGO(wave_generators, [1 for _ in wave_generators])
+
+    def stop_waveform(self, wave_generators: List[int]):
+        self.device.WGO(wave_generators, [0 for _ in wave_generators])
 
     def get_servo_cycle_duration(self) -> float:
         """get the servo cycle duration in seconds"""
@@ -363,5 +375,9 @@ if __name__ == '__main__':
                 pidev.set_referencing(axis)
                 print(f'Axis {axis} referencing is: {pidev.is_referenced(axis)}')
 
+        pidev.set_waveform(100, 5)
+        pidev.start_waveform([1, 2], 1)
+
+        pass
     pass
 
