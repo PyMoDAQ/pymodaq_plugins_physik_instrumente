@@ -329,31 +329,42 @@ class PIWrapper:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        print("\nExecution type:", exc_type)
+        print("\nExecution value:", exc_val)
+        print("\nTraceback:", exc_tb)
         return True
 
-    def set_waveform(self, amplitude: float, rate: int = 1,):
-        self.device.WCL(1)
-        self.device.WCL(2)
-        self.device.WAV_RAMP(1, 0, 16000, 'X', 13000, 150, amplitude, 0, 16000)
-        self.device.WAV_RAMP(2, 0, 1600, 'X', 1300, 150, amplitude, 0, 1600)
-        for _ in range(9):
-            self.device.WAV_RAMP(2, 0, 1600, '&', 1300, 150, amplitude, 0, 1600)
-
+    def set_1D_waveform(self, amplitude: float, offset=0., npts=1000,
+                        axis: int = 1, rate: int = 1):
+        start_point = 0
+        speed_up_down = 0
+        seg_length = npts + start_point + npts / 2
+        wavelength = npts + npts / 2
+        curve_center_point = npts
+        self.device.WCL(axis)
+        self.device.WAV_RAMP(axis, 0, seg_length, 'X', wavelength,
+                             speed_up_down, amplitude, offset, curve_center_point)
         self.device.WSL(1, 1)  # affect axis 1 to wavetable 1
-        self.device.WSL(2, 2)  # affect axis 2 to wavetable 2
-
         self.device.WTR(0, rate, 1)  # set the rate (multiple of servo cycles)
 
-    def start_waveform(self, wave_generators: List[int], cycles: int = 0):
-        self.device.WGC([1, 2], [cycles, cycles])  # set the number of cycles
-        self.device.WGO(wave_generators, [1 for _ in wave_generators])
+    def start_waveform(self, axis: int = 1, cycles: int = 1):
+        self.device.WGC(axis, cycles)  # set the number of cycles
+        self.device.WGO(axis, 1)
 
-    def stop_waveform(self, wave_generators: List[int]):
-        self.device.WGO(wave_generators, [0 for _ in wave_generators])
+    def stop_waveform(self, axis: int = 1):
+        self.device.WGO(axis, 0)
 
     def get_servo_cycle_duration(self) -> float:
         """get the servo cycle duration in seconds"""
         return self.device.qSPA('1', 0x0E000200)['1'][0x0E000200]
+
+    def set_trigger_waveform(self, points: List[int],  do: int = 1):
+        # clear previous triggers
+        self.device.TWC()
+        # set trigger on digital output line do on the wave generator output
+        self.device.CTO(do, 3, 4)
+        # set the trigger position on the wave points
+        self.device.TWS(do, points, [1 for _ in points])
 
 
 if __name__ == '__main__':
@@ -365,6 +376,7 @@ if __name__ == '__main__':
         pidev.connect_device()
 
         print(pidev.identify())
+        print(f'Servo cycle: {pidev.get_servo_cycle_duration()}, freqency: {1/pidev.get_servo_cycle_duration()}')
 
         axes = pidev.axis_names
         for axis in axes:
@@ -375,9 +387,10 @@ if __name__ == '__main__':
                 pidev.set_referencing(axis)
                 print(f'Axis {axis} referencing is: {pidev.is_referenced(axis)}')
 
-        pidev.set_waveform(100, 5)
-        pidev.start_waveform([1, 2], 1)
+        pidev.set_1D_waveform(50, 30, 10000, rate=1)
+        pidev.set_trigger_waveform([1], do=1)
+        pidev.start_waveform(1)
 
-        pass
+        print(f"axis 1 is at : {pidev.get_axis_position('1')}")
     pass
 
