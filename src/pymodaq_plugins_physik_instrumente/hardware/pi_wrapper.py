@@ -15,44 +15,16 @@ from pymodaq.utils.parameter.utils import iter_children
 from pymodaq.utils.enums import BaseEnum
 
 
-from pymodaq_plugins_physik_instrumente.utils import Config
+from pymodaq_plugins_physik_instrumente.utils import Config, get_devices_and_dlls
+
 
 config = Config()
+possible_dll_names = config['dll_names']
+devices, devices_name, dll_names = get_devices_and_dlls(possible_dll_names)
 
 
 ConnectionEnum = BaseEnum('ConnectionEnum', ['RS232', 'USB', 'TCP/IP'])
 
-
-
-possible_dll_names = config['dll_names']
-dll_in_testing_order = []
-
-for dll_name in possible_dll_names:
-    if is_64bits():
-        filename = f'{dll_name}_x64.dll'
-    else:
-        filename = f'{dll_name}.dll'
-    file_path = Path(get_gcstranslator_dir()).joinpath(filename)
-    if file_path.is_file():
-        dll_in_testing_order.append(filename)
-
-devices = []
-dll_names = []
-devices_name = []
-for _dll_name in dll_in_testing_order:
-    gcs_device = GCSDevice(gcsdll=_dll_name)
-    _devices = []
-    _devices.extend(gcs_device.EnumerateUSB())
-    _devices.extend(gcs_device.EnumerateTCPIPDevices())
-    for dev in _devices:
-        dll_names.append(_dll_name)
-        devices.append(f'{dev}/{_dll_name}')
-    devices_name.extend(_devices)
-
-com_ports = list(list_ports.comports())
-devices.extend([str(port.name) for port in com_ports])
-devices_name.extend([str(port.name) for port in com_ports])
-dll_names.extend(['serial' for port in com_ports])
 
 
 class PIWrapper:
@@ -115,6 +87,18 @@ class PIWrapper:
         """ Get the list of axis of the controller as a list of string"""
         return self.device.axes
 
+    def get_axis_units(self, default='mm'):
+        units = default
+        try:
+            # get units (experimental)
+            if hasattr(self.device, 'qSPA'):
+                units = \
+                    self.device.qSPA(self.axis_names[0], 0x07000601)[self.axis_names[0]][0x07000601]
+        except GCSError:
+            # library not compatible with this set of commands
+            pass
+        return units
+
     @property
     def is_daisy(self):
         return self._is_daisy
@@ -127,11 +111,11 @@ class PIWrapper:
     def is_daisy_master(self):
         return self._is_daisy_master
 
-    @is_daisy.setter
+    @is_daisy_master.setter
     def is_daisy_master(self, is_daisy_master: bool):
         self._is_daisy_master = is_daisy_master
 
-    def use_joystick(self, do_use = True):
+    def use_joystick(self, do_use=True):
         """ Enable or not the use of a joystick
 
         Parameters
@@ -145,7 +129,11 @@ class PIWrapper:
             else:
                 self.device.JON(ind + 1, False)
 
-    def set_servo(self, axis: str, enable_servo = True):
+    def get_servo(self, axis: str):
+        """ Check if servo on a given axis is on or not"""
+        return self.device.qSVO(axis)[axis]
+
+    def set_servo(self, axis: str, enable_servo=True):
         """ Turns on or off the closed loop
 
         Parameters
@@ -155,7 +143,7 @@ class PIWrapper:
         enable_servo: bool
         """
         if axis in self.axis_names:
-            if self.device.qSVO(axis)[axis] != enable_servo:
+            if self.get_servo(axis) != enable_servo:
                 self.device.SVO(axis, enable_servo)
 
     def set_referencing(self, axes: Union[str, List[str]]):
@@ -225,6 +213,7 @@ class PIWrapper:
             self.device = GCSDevice()
         else:
             self.device = GCSDevice(gcsdll=gcsdll)
+        return self.device
 
     def connect_device(self):
         if self.connection_type is not None and self.device_id is not None:
