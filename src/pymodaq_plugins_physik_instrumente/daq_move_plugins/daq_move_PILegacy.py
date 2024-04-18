@@ -14,44 +14,15 @@ from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_
 from pymodaq.utils.parameter.utils import iter_children
 
 
-from pymodaq_plugins_physik_instrumente.utils import Config
+from pymodaq_plugins_physik_instrumente.utils import Config, get_devices_and_dlls
+
 
 config = Config()
-
-
 possible_dll_names = config['dll_names']
-
-dll_in_testing_order = []
-
-for dll_name in possible_dll_names:
-    if is_64bits():
-        filename = f'{dll_name}_x64.dll'
-    else:
-        filename = f'{dll_name}.dll'
-    file_path = Path(get_gcstranslator_dir()).joinpath(filename)
-    if file_path.is_file():
-        dll_in_testing_order.append(filename)
-
-devices = []
-dll_names = []
-devices_name = []
-for _dll_name in dll_in_testing_order:
-    gcs_device = GCSDevice(gcsdll=_dll_name)
-    _devices = []
-    _devices.extend(gcs_device.EnumerateUSB())
-    _devices.extend(gcs_device.EnumerateTCPIPDevices())
-    for dev in _devices:
-        dll_names.append(_dll_name)
-        devices.append(f'{dev}/{_dll_name}')
-    devices_name.extend(_devices)
-
-com_ports = list(list_ports.comports())
-devices.extend([str(port.name) for port in com_ports])
-devices_name.extend([str(port.name) for port in com_ports])
-dll_names.extend(['serial' for port in com_ports])
+devices, devices_name, dll_names = get_devices_and_dlls(possible_dll_names)
 
 
-class DAQ_Move_PI(DAQ_Move_base):
+class DAQ_Move_PILegacy(DAQ_Move_base):
     """
     Plugin using the pipython package wrapper. It is compatible with :
     DLLDEVICES = {
