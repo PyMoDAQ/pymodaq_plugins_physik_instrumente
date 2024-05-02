@@ -2,53 +2,20 @@
 from typing import Tuple
 from pathlib import Path
 
-import numpy as np
-import os
-from pipython import GCSDevice, GCSError
-from pipython.pidevice.interfaces.gcsdll import get_gcstranslator_dir
 
-import serial.tools.list_ports as list_ports
+from pymodaq.control_modules.move_utility_classes import (DAQ_Move_base, main, comon_parameters_fun,
+    DataActuator)
 
-from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main, comon_parameters_fun
 from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
 from pymodaq.utils.parameter.utils import iter_children
 
 
-from pymodaq_plugins_physik_instrumente.utils import Config
+from pymodaq_plugins_physik_instrumente.utils import Config, get_devices_and_dlls
+from pymodaq_plugins_physik_instrumente.hardware.pi_wrapper import PIWrapper, ConnectionEnum
 
 config = Config()
-
-
 possible_dll_names = config['dll_names']
-
-dll_in_testing_order = []
-
-for dll_name in possible_dll_names:
-    if is_64bits():
-        filename = f'{dll_name}_x64.dll'
-    else:
-        filename = f'{dll_name}.dll'
-    file_path = Path(get_gcstranslator_dir()).joinpath(filename)
-    if file_path.is_file():
-        dll_in_testing_order.append(filename)
-
-devices = []
-dll_names = []
-devices_name = []
-for _dll_name in dll_in_testing_order:
-    gcs_device = GCSDevice(gcsdll=_dll_name)
-    _devices = []
-    _devices.extend(gcs_device.EnumerateUSB())
-    _devices.extend(gcs_device.EnumerateTCPIPDevices())
-    for dev in _devices:
-        dll_names.append(_dll_name)
-        devices.append(f'{dev}/{_dll_name}')
-    devices_name.extend(_devices)
-
-com_ports = list(list_ports.comports())
-devices.extend([str(port.name) for port in com_ports])
-devices_name.extend([str(port.name) for port in com_ports])
-dll_names.extend(['serial' for port in com_ports])
+devices, devices_name, dll_names = get_devices_and_dlls(possible_dll_names)
 
 
 class DAQ_Move_PI(DAQ_Move_base):
@@ -82,7 +49,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     params = [
         {'title': 'Connection_type:', 'name': 'connect_type', 'type': 'list',
-         'value': 'USB', 'values': ['USB', 'TCP/IP', 'RS232']},
+         'value': 'USB', 'values': ConnectionEnum.names()},
         {'title': 'Devices:', 'name': 'devices', 'type': 'list', 'limits': devices},
         {'title': 'Daisy Chain Options:', 'name': 'dc_options', 'type': 'group', 'children': [
             {'title': 'Use Daisy Chain:', 'name': 'is_daisy', 'type': 'bool', 'value': False},
@@ -100,17 +67,8 @@ class DAQ_Move_PI(DAQ_Move_base):
         ] + comon_parameters_fun(is_multiaxes, stage_names, epsilon=_epsilon)
 
     def ini_attributes(self):
-        self.controller: GCSDevice = None
+        self.controller: PIWrapper = None
         self.is_referencing_function = True
-        self._device = None
-
-    @property
-    def device(self):
-        return self._device
-
-    @device.setter
-    def device(self, device):
-        self._device = device
 
     def commit_settings(self, param):
         """
@@ -118,200 +76,70 @@ class DAQ_Move_PI(DAQ_Move_base):
         """
         try:
             if param.name() == 'use_joystick':
-                axes = self.controller.axes
-                for ind, ax in enumerate(axes):
-                    try:
-                        if param.value():
-                            res = self.controller.JAX(1, ind + 1, ax)
-                            res = self.controller.JON(ind + 1, True)
-                        else:
-                            self.controller.JON(ind + 1, False)
-                    except Exception as e:
-                        pass
+                self.controller.use_joystick(param.value())
 
-                pass
             elif param.name() == 'axis' and param.name() in iter_children(self.settings.child('multiaxes')):
-                self.settings.child('closed_loop').setValue(self.controller.qSVO(param.value())[param.value()])
-                self.set_referencing(self.axis_name)
-                self.set_axis_limits(self.get_axis_limits())
+                self.settings.child('closed_loop').setValue(self.controller.get_servo(param.value()))
+                self.controller.set_referencing(self.axis_name)
+                self.set_axis_limits(self.controller.get_axis_limits(self.axis_name))
 
             elif param.name() == 'closed_loop':
-                axe = self.axis_name
-                if self.controller.qSVO(axe)[axe] != self.settings['closed_loop']:
-                    self.controller.SVO(axe, param.value())
+                self.controller.set_servo(self.axis_name, self.settings['closed_loop'])
 
         except Exception as e:
             self.emit_status(ThreadCommand("Update_Status", [getLineInfo() + str(e), 'log']))
-
-    def ini_device(self) -> GCSDevice:
-        """ load the correct dll given the chosen device
-
-        """
-
-        try:
-            self.close()
-        except Exception as e:
-            pass
-        index = devices.index(self.settings['devices'])
-        gcsdll = dll_names[index]
-        if gcsdll == 'serial':
-            return GCSDevice()
-        else:
-            return GCSDevice(gcsdll=gcsdll)
-
-    def connect_device(self):
-        if not self.settings['dc_options', 'is_daisy']:  # simple connection
-            if self.settings['connect_type'] == 'USB':
-                self.controller.ConnectUSB(self.device)
-            elif self.settings['connect_type'] == 'TCP/IP':
-                self.controller.ConnectTCPIPByDescription(self.device)
-            elif self.settings['connect_type'] == 'RS232':
-                self.controller.ConnectRS232(int(self.device[3:]), 19200)
-                # in this case device is a COM port, and one should use 1 for COM1 for instance
-
-        else:  # one use a daisy chain connection with a master device and slaves
-            if self.settings['dc_options', 'is_daisy_master']:  # init the master
-
-                if self.settings['connect_type'] == 'USB':
-                    dev_ids = self.controller.OpenUSBDaisyChain(self.device)
-                elif self.settings['connect_type'] == 'TCP/IP':
-                    dev_ids = self.controller.OpenTCPIPDaisyChain(self.device)
-                elif self.settings['connect_type'] == 'RS232':
-                    dev_ids = self.controller.OpenRS232DaisyChain(int(self.device[
-                                                                      3:]))  # in this case device is a COM port, and one should use 1 for COM1 for instance
-
-                self.settings.child('dc_options', 'daisy_devices').setLimits(dev_ids)
-                self.settings.child('dc_options', 'daisy_id').setValue(self.controller.dcid)
-
-            self.controller.ConnectDaisyChainDevice(
-                self.settings['dc_options', 'index_in_chain'] + 1,
-                self.settings['dc_options', 'daisy_id'])
 
     def ini_stage(self, controller=None):
         """
 
         """
-        self.ini_stage_init(old_controller=controller, new_controller=self.ini_device())
+        self.ini_stage_init(old_controller=controller, new_controller=PIWrapper())
+
         self.device = devices_name[devices.index(self.settings['devices'])]
+
         if self.settings['multiaxes', 'multi_status'] == "Master":
-            self.connect_device()
+            self.controller.is_daisy = self.settings['dc_options', 'is_daisy']
+            self.controller.is_daisy_master = self.settings['dc_options', 'is_daisy_master']
+            self.controller.connection_type = ConnectionEnum[self.settings['connect_type']]
+            self.controller.connect_device()
 
-        self.settings.child('controller_id').setValue(self.controller.qIDN())
-        self.axis_names = self.controller.axes
-
-        self.set_referencing(self.axis_name)
+        self.settings.child('controller_id').setValue(self.controller.identify())
+        self.axis_names = self.controller.axis_names
+        self.controller.set_referencing(self.axis_name)
 
         # check servo status:
-        self.settings.child('closed_loop').setValue(
-            self.controller.qSVO(self.controller.axes[0])[self.controller.axes[0]])
+        self.settings.child('closed_loop').setValue(self.controller.get_servo(self.axis_name))
 
-        try:
-            self.set_axis_limits(self.get_axis_limits())
-        except GCSError:
-            # library not compatible with this set of commands
-            pass
-        try:
-            # get units (experimental)
-            if hasattr(self.controller, 'qSPA'):
-                self.controller_units = \
-                    self.controller.qSPA(self.controller.axes[0], 0x07000601)[self.controller.axes[0]][0x07000601]
-        except GCSError:
-            # library not compatible with this set of commands
-            pass
+        self.set_axis_limits(self.controller.get_axis_limits(self.axis_name))
+
+        self.controller_units = self.controller.get_axis_units(self._controller_units)
 
         info = "connected on device:{} /".format(self.device) + self.controller.qIDN()
         initialized = True
         return info, initialized
 
-    def get_axis_limits(self):
-        if hasattr(self.controller, 'qTMN'):
-            min_val = self.controller.qTMN(self.axis_name)[self.axis_name]
-        else:
-            min_val = np.NaN
-        if hasattr(self.controller, 'qTMX'):
-            max_val = self.controller.qTMX(self.axis_name)[self.axis_name]
-        else:
-            max_val = np.NaN
-        return min_val, max_val
-
     def set_axis_limits(self, limits: Tuple[float]):
         self.settings.child('axis_infos', 'min').setValue(limits[0])
         self.settings.child('axis_infos', 'max').setValue(limits[1])
 
-    def is_referenced(self, axe):
-        """
-            Return the referencement statement from the hardware device.
-
-            ============== ========== ============================================
-            **Parameters**  **Type**   **Description**
-
-             *axe*          string     Representing a connected axe on controller
-            ============== ========== ============================================
-
-            Returns
-            -------
-            ???
-
-        """
-        try:
-            if self.controller.HasqFRF():
-                return self.controller.qFRF(axe)[axe]
-            else:
-                return False
-        except:
-            return False
-
-    def set_referencing(self, axes):
-        """
-            Set the referencement statement into the hardware device.
-
-            ============== ============== ===========================================
-            **Parameters**    **Type**      **Description**
-             *axes*           string list  Representing connected axes on controller
-            ============== ============== ===========================================
-        """
-        try:
-            if not isinstance(axes, list):
-                axes = [axes]
-            for axe in axes:
-                # set referencing mode
-                if isinstance(axe, str):
-                    if self.is_referenced(axe):
-                        if self.controller.HasRON():
-                            self.controller.RON(axe, True)
-                        self.controller.FRF(axe)
-        except Exception as e:
-            self.emit_status(ThreadCommand('Update_Status',
-                                           [getLineInfo() + str(e) + " / Referencing not enabled with this dll",
-                                            'log']))
-
     def close(self):
         """
-            close the current instance of PI_GCS2 instrument.
+
         """
-        if not self.settings.child('dc_options', 'is_daisy').value():  # simple connection
-            self.controller.CloseConnection()
-        else:
-            self.controller.CloseDaisyChain()
+        self.controller.close()
 
     def stop_motion(self):
         """
-            See Also
-            --------
-            DAQ_Move_base.move_done
+
         """
-        self.controller.StopAll()
+        self.controller.stop()
         self.move_done()
 
     def get_actuator_value(self):
         """
-            Get the current hardware position with scaling conversion of the PI_GCS2 instrument provided by get_position_with_scaling
 
-            See Also
-            --------
-            DAQ_Move_base.get_position_with_scaling, daq_utils.ThreadCommand
         """
-        pos = self.controller.qPOS(self.axis_name)[self.axis_name]
+        pos = DataActuator(self.axis_name, self.controller.get_axis_position(self.axis_name))
         pos = self.get_position_with_scaling(pos)
         return pos
 
@@ -322,7 +150,7 @@ class DAQ_Move_PI(DAQ_Move_base):
         position = self.check_bound(position)
         self.target_position = position
         position = self.set_position_with_scaling(position)
-        out = self.controller.MOV(self.axis_name, position)
+        out = self.controller.move_absolute(self.axis_name, position.value())
 
     def move_rel(self, position):
         """
@@ -332,11 +160,7 @@ class DAQ_Move_PI(DAQ_Move_base):
         self.target_position = position + self.current_position
 
         position = self.set_position_relative_with_scaling(position)
-
-        if self.controller.HasMVR():
-            out = self.controller.MVR(self.axis_name, position)
-        else:
-            self.move_abs(self.target_position)
+        self.controller.move_relative(self.axis_name, position.value())
 
     def move_home(self):
         """
@@ -345,13 +169,8 @@ class DAQ_Move_PI(DAQ_Move_base):
             --------
             DAQ_Move_PI.set_referencing, DAQ_Move_base.poll_moving
         """
-        self.set_referencing(self.axis_name)
-        if self.controller.HasGOH():
-            self.controller.GOH(self.axis_name)
-        elif self.controller.HasFRF():
-            self.controller.FRF(self.axis_name)
-        else:
-            self.move_abs(0)
+        self.controller.set_referencing(self.axis_name)
+        self.controller.move_home(self.axis_name)
 
 
 if __name__ == '__main__':
