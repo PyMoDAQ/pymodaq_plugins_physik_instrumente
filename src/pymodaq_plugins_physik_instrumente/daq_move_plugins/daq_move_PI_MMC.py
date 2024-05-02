@@ -46,6 +46,7 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
     controller_addresses = []
     is_multiaxes=False
     stage_names=[]
+    _epsilon = 0.1
 
     params= [{'title': 'COM Ports:', 'name': 'com_port', 'type': 'list', 'limits': com_ports},
            {'title': 'Controller_address:', 'name': 'controller_address', 'type': 'list', 'limits': controller_addresses},
@@ -54,16 +55,10 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
            {'title': 'Controller ID:', 'name': 'controller_id', 'type': 'str', 'value': '', 'readonly': True},
            ] + comon_parameters_fun(is_multiaxes, stage_names, epsilon=_epsilon)
 
-
-
-
-
     def __init__(self,parent=None,params_state=None):
 
         super().__init__(parent,params_state)
         self.settings.child(('epsilon')).setValue(0.01)
-
-
 
     def commit_settings(self,param):
         """
@@ -86,7 +81,7 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
 
             elif param.name() == 'controller_address':
                 self.controller.MMC_select(param.value())
-                self.check_position()
+                self.get_actuator_value()
 
 
         except Exception as e:
@@ -134,7 +129,7 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
                 devices = self.enumerate_devices()
                 self.controller.MMC_select(devices[0])
 
-            self.check_position()
+            self.get_actuator_value()
 
             self.status.controller=self.controller
             self.status.info=""
@@ -165,7 +160,7 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
         self.controller.MMC_globalBreak()
         self.move_done()
 
-    def check_position(self):
+    def get_actuator_value(self):
         """
             Get the current hardware position with scaling conversion of the PI_GCS2 instrument provided by get_position_with_scaling
 
@@ -176,10 +171,9 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
         pos = self.controller.getPos()
         pos=self.get_position_with_scaling(pos)
         self.current_position = pos
-        self.emit_status(ThreadCommand('check_position',[pos]))
         return pos
 
-    def move_Abs(self,position):
+    def move_abs(self,position):
         """
         """
 
@@ -189,10 +183,7 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
         position=self.set_position_with_scaling(position)
         out=self.controller.moveAbs(self.settings.child('controller_address').value(), position)
 
-        self.poll_moving()
-
-
-    def move_Rel(self,position):
+    def move_rel(self,position):
         """
             Make the hardware relative move of the PI_GCS2 instrument from the given position after thread command signal was received in DAQ_Move_main.
 
@@ -212,9 +203,8 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
         position = self.set_position_relative_with_scaling(position)
 
         out=self.controller.moveRel(self.settings.child('controller_address').value(), position)
-        self.poll_moving()
 
-    def move_Home(self):
+    def move_home(self):
         """
 
             See Also
@@ -223,15 +213,15 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
         """
         self.controller.find_home()
         moving = True
-        pos = self.check_position()
+        pos = self.get_actuator_value()
         while moving:
-            pos_tmp = self.check_position()
+            pos_tmp = self.get_actuator_value()
             moving = abs(pos - pos_tmp) > 0.001
             QThread.msleep(100)
             pos = pos_tmp
         self.controller.MMC_sendCommand('DH')  #to define it as home
         QThread.msleep(500)
-        self.check_position()
+        self.get_actuator_value()
 
 
 if __name__ == '__main__':
