@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 from pymodaq.control_modules.move_utility_classes import (DAQ_Move_base, main, comon_parameters_fun,
-    DataActuator)
+    DataActuator, DataActuatorType)
 
 from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
 from pymodaq.utils.parameter.utils import iter_children
@@ -42,7 +42,7 @@ class DAQ_Move_PI(DAQ_Move_base):
     _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using
     # self.controller_units = new_unit
 
-
+    data_actuator_type = DataActuatorType['DataActuator']
     is_multiaxes = True
     stage_names = []
     _epsilon = 0.01
@@ -95,12 +95,11 @@ class DAQ_Move_PI(DAQ_Move_base):
         """
         self.ini_stage_init(old_controller=controller, new_controller=PIWrapper())
 
-        self.device = devices_name[devices.index(self.settings['devices'])]
-
         if self.settings['multiaxes', 'multi_status'] == "Master":
             self.controller.is_daisy = self.settings['dc_options', 'is_daisy']
             self.controller.is_daisy_master = self.settings['dc_options', 'is_daisy_master']
             self.controller.connection_type = ConnectionEnum[self.settings['connect_type']]
+            self.controller.device_id = devices_name[devices.index(self.settings['devices'])]
             self.controller.connect_device()
 
         self.settings.child('controller_id').setValue(self.controller.identify())
@@ -114,7 +113,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         self.controller_units = self.controller.get_axis_units(self._controller_units)
 
-        info = "connected on device:{} /".format(self.device) + self.controller.qIDN()
+        info = f"connected on device:{self.settings['controller_id']}"
         initialized = True
         return info, initialized
 
@@ -139,7 +138,7 @@ class DAQ_Move_PI(DAQ_Move_base):
         """
 
         """
-        pos = DataActuator(self.axis_name, self.controller.get_axis_position(self.axis_name))
+        pos = DataActuator(self.axis_name, data=self.controller.get_axis_position(self.axis_name))
         pos = self.get_position_with_scaling(pos)
         return pos
 

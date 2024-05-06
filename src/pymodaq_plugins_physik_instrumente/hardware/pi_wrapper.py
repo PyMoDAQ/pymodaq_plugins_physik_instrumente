@@ -333,7 +333,7 @@ class PIWrapper:
         self.device.WCL(axis)
         self.device.WAV_RAMP(axis, 0, seg_length, 'X', wavelength,
                              speed_up_down, amplitude, offset, curve_center_point)
-        self.device.WSL(1, 1)  # affect axis 1 to wavetable 1
+        self.device.WSL(axis, axis)  # affect axis axis to wavetable 1
         self.device.WTR(0, rate, 1)  # set the rate (multiple of servo cycles)
 
     def start_waveform(self, axis: int = 1, cycles: int = 1):
@@ -375,10 +375,10 @@ if __name__ == '__main__':
                 pidev.set_servo(axis, True)
                 pidev.set_referencing(axis)
                 print(f'Axis {axis} referencing is: {pidev.is_referenced(axis)}')
-
-        pidev.set_1D_waveform(50, 30, 10000, rate=1)
+        axis = 2
+        pidev.set_1D_waveform(10, 0, 100, rate=200, axis=axis)
         pidev.set_trigger_waveform([1], do=1)
-        pidev.start_waveform(1)
+        pidev.start_waveform(axis, 1)
 
         print(f"axis 1 is at : {pidev.get_axis_position('1')}")
     pass
