@@ -1,5 +1,5 @@
 import sys
-from abc import ABC, abstractmethod
+
 from ctypes import windll, create_string_buffer, POINTER, byref, pointer
 from ctypes import c_uint, c_int, c_char, c_char_p, c_void_p, c_short, c_long, c_bool, c_double, c_uint64, c_uint32, Array, CFUNCTYPE, WINFUNCTYPE
 from ctypes import c_ushort, c_ulong, c_float
@@ -7,6 +7,7 @@ import os
 from pyvisa import ResourceManager
 from bitstring import Bits
 
+from .base import MMCBase
 
 try:
     from msl.loadlib import Server32
@@ -15,132 +16,6 @@ except ImportError:
     Server32 = object
     server32 = False
 
-
-class MMCBase(ABC):
-    """
-    Wrapper to the MMC dll from Physik Instrumente
-
-    """
-    stages = {'M521DG': dict(cts_units_num=2458624, cts_units_denom=81, units="mm")}
-    VISA_rm = ResourceManager()
-    ress = VISA_rm.list_resources_info()
-    aliases = []
-    ports = []
-    for key in ress.keys():
-        if ress[key].alias is not None:
-            if 'COM' in ress[key].alias:
-                aliases.append(ress[key].alias)
-                ports.append(ress[key].interface_board_number)
-
-    baudrates = [9600, 19200]
-
-    def __init__(self, stage='M521DG', com_port='COM1', baud_rate=9600):
-
-        if stage not in self.stages.keys():
-            raise Exception('not valid stage')
-        if com_port not in self.aliases:
-            raise IOError('invalid com port')
-        if baud_rate not in self.baudrates:
-            raise IOError('invalid baudrate')
-        self.stage = stage
-        self._comport = com_port
-        self._baudrate = baud_rate
-
-    @property
-    def comport(self):
-        return self._comport
-
-    @comport.setter
-    def comport(self,port):
-        if not isinstance(port, str):
-            raise TypeError("not a valid port type, should be a string: 'COM6'")
-        if port not in self.ports:
-            raise IOError('{} is an invalid COM port'.format(port))
-        self._comport = port
-
-    @property
-    def baudrate(self):
-        return self._comport
-
-    @baudrate.setter
-    def baudrate(self,rate):
-        if not isinstance(rate, int):
-            raise TypeError("not a valid baudrate")
-        if rate not in self.baudrates:
-            raise IOError('{} is an invalid baudrate'.format(rate))
-        self._baudrate = rate
-
-    def counts_to_units(self,counts):
-        return counts*1/(self.stages[self.stage]['cts_units_num']/self.stages[self.stage]['cts_units_denom'])
-
-    def units_to_counts(self,units):
-        return int(units/(self.stages[self.stage]['cts_units_denom']/self.stages[self.stage]['cts_units_num']))
-
-    def moveAbs(self,axis, units):
-        """
-        displacement in the selected stage units
-        Parameters
-        ----------
-        units: (float)
-        """
-        self.MMC_moveA(axis, self.units_to_counts(units))
-
-    def moveRel(self,axis, units):
-        """
-        displacement in the selected stage units
-        Parameters
-        ----------
-        units: (float)
-        """
-        self.MMC_moveR(axis, self.units_to_counts(units))
-
-    def getPos(self):
-        return self.counts_to_units(self.MMC_getPos())
-
-    def open(self):
-        port = self.ports[self.aliases.index(self._comport)]
-        self.MMC_COM_open(port,self._baudrate)
-
-    def find_home(self):
-        self.MMC_sendCommand('FE1')
-
-    def moving(self):
-        target = self.MMC_getVal(2)
-        self.MMC_sendCommand('TE')
-        st = self.MMC_getStringCR()
-        if '-' in st:
-            pos = -int(st.split('E:-')[1])
-        else:
-            pos = int(st.split('E:+')[1])
-        return abs(target - pos) > 100
-
-    @abstractmethod
-    def MMC_moveA(self, axis, value: int):
-        pass
-
-    @abstractmethod
-    def MMC_moveR(self, axis, value: int):
-        pass
-
-    @abstractmethod
-    def MMC_getPos(self):
-        pass
-
-    @abstractmethod
-    def MMC_COM_open(self, port: int, baudrate: int):
-        pass
-
-    @abstractmethod
-    def MMC_sendCommand(self, cmd: str):
-        pass
-
-    @abstractmethod
-    def MMC_getVal(self, cmd: int):
-        pass
-
-    @abstractmethod
-    def MMC_getStringCR(self) -> str:
-        pass
 
 
 class MMC_Wrapper(MMCBase, Server32):
