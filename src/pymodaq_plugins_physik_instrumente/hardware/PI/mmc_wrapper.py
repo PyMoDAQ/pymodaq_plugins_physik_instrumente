@@ -1,12 +1,25 @@
 import sys
-from ctypes import windll, create_string_buffer, POINTER, byref, pointer
-from ctypes import c_uint, c_int, c_char, c_char_p, c_void_p, c_short, c_long, c_bool, c_double, c_uint64, c_uint32, Array, CFUNCTYPE, WINFUNCTYPE
-from ctypes import c_ushort, c_ulong, c_float
-import os
-from pyvisa import ResourceManager
-from bitstring import Bits
 
-class MMC_Wrapper(object):
+from abc import ABC, abstractmethod
+from ctypes import windll, create_string_buffer, byref
+import os
+
+from pyvisa import ResourceManager
+
+try:
+    from msl.loadlib import Server32
+    server32 = True
+except ImportError:
+    Server32 = object
+    server32 = False
+
+
+def bitarray(integer: int):
+    binary_string = bin(integer)[2:]
+    return [int(bit) for bit in binary_string]
+
+
+class MMCBase(ABC):
     """
     Wrapper to the MMC dll from Physik Instrumente
 
@@ -24,7 +37,8 @@ class MMC_Wrapper(object):
 
     baudrates = [9600, 19200]
 
-    def __init__(self,stage='M521DG', com_port='COM1', baud_rate=9600):
+    def __init__(self, stage='M521DG', com_port='COM1', baud_rate=9600):
+
         if stage not in self.stages.keys():
             raise Exception('not valid stage')
         if com_port not in self.aliases:
@@ -32,10 +46,8 @@ class MMC_Wrapper(object):
         if baud_rate not in self.baudrates:
             raise IOError('invalid baudrate')
         self.stage = stage
-        super(MMC_Wrapper,self).__init__()
         self._comport = com_port
         self._baudrate = baud_rate
-        self._dll = windll.LoadLibrary(os.path.join(os.path.split(__file__)[0],'MMC.dll'))
 
     @property
     def comport(self):
@@ -67,7 +79,7 @@ class MMC_Wrapper(object):
     def units_to_counts(self,units):
         return int(units/(self.stages[self.stage]['cts_units_denom']/self.stages[self.stage]['cts_units_num']))
 
-    def moveAbs(self,axis, units):
+    def moveAbs(self, axis, units):
         """
         displacement in the selected stage units
         Parameters
@@ -90,7 +102,13 @@ class MMC_Wrapper(object):
 
     def open(self):
         port = self.ports[self.aliases.index(self._comport)]
-        self.MMC_COM_open(port,self._baudrate)
+        self.MMC_COM_open(port, self._baudrate)
+
+    def close(self):
+        self.MMC_COM_close()
+
+    def stop(self):
+        self.MMC_globalBreak()
 
     def find_home(self):
         self.MMC_sendCommand('FE1')
@@ -105,16 +123,95 @@ class MMC_Wrapper(object):
             pos = int(st.split('E:+')[1])
         return abs(target - pos) > 100
 
+    @abstractmethod
+    def MMC_moveA(self, axis: int = 0, position: int = 0):
+        pass
+
+    @abstractmethod
+    def MMC_moveR(self, axis: int = 0, position: int = 0):
+        pass
+
+    @abstractmethod
+    def MMC_getPos(self):
+        pass
+
+    @abstractmethod
+    def MMC_COM_open(self, port: int, baudrate: int):
+        pass
+
+    @abstractmethod
+    def MMC_COM_close(self):
+        pass
+
+    @abstractmethod
+    def MMC_globalBreak(self):
+        pass
+
+    @abstractmethod
+    def MMC_sendCommand(self, cmd: str):
+        pass
+
+    @abstractmethod
+    def MMC_getVal(self, cmd: int):
+        pass
+
+    @abstractmethod
+    def MMC_getStringCR(self) -> str:
+        pass
+
+    @abstractmethod
+    def MMC_select(self, axis: int = 0):
+        """
+        Selects the specified axis (device) to enable communication with it.
+        Unlike the MMC_setDevice function, here the registration status is checked, so this function requires that the
+        MMC_initNetwork function have been called previously at the beginning of the program.
+        Parameters
+        ----------
+        axis: (int) range 1 to 16 Device number of the controller that is to be selected for communication.
+        """
+        pass
+
+    @abstractmethod
+    def MMC_initNetwork(self, maxAxis: int = 16):
+        """
+        Searches all addresses, starting at address maxAxis down to 1 for Mercury™ devices connected.
+        If a Mercury™ device (can be C-862, C-863, C-663 or C-170) is found, it is registered so as to allow access through the MMC_select() function.
+        The function MMC_initNetwork is optional. If it is not used, devices can be activated anyway using the MMC_setDevice function.
+        Parameters
+        ----------
+        maxAxis: (int) This parameter represents the highest device number from which the search is to run, continuing downwards.
+                        If you have 3 Mercury™s connected at the addresses 0,1 and 2 (this equals the device numbers 1,2 and 3) you may call the function as MMC_initNetwork(3).
+                        If you do no know what addresses the controllers are set to, call the function with maxAxis = 16 to find all devices connected. (Remember that valid device numbers range from 1 to 16.)
+                        The range of maxAxis is 1 to 16
+                        Because scanning each address takes about 0.5 seconds, it saves time to not start at device numbers higher than required.
+        Returns
+        -------
+        list: list of integers corresponding to the connected devices
+        """
+        pass
+
+
+
+class MMC_Wrapper(MMCBase, Server32):
+    def __init__(self, host='', port=0, stage='M521DG', com_port='COM1', baud_rate=9600):
+        if server32:
+            Server32.__init__(self, 'MMC.dll',
+                              'windll', host, port)
+        else:
+            Server32.__init__(self)
+            self._lib = windll.LoadLibrary(os.path.join(os.path.split(__file__)[0], 'MMC.dll'))
+        MMCBase.__init__(self, stage, com_port, baud_rate)
+
     def MMC_getStringCR(self):
         st = create_string_buffer(128)
-        res = self._dll.MMC_getStringCR(byref(st))
+        res = self.lib.MMC_getStringCR(byref(st))
         if res != 0:
             return st.decode()
         else:
             raise IOError('wrong return from dll')
 
     def MMC_COM_open(self, port_number, baudrate):
-        res = self._dll.MMC_COM_open(port_number, baudrate)
+        res = self.lib.MMC_COM_open(port_number, baudrate)
         if res != 0:
             raise IOError('wrong return from dll')
 
@@ -123,7 +220,7 @@ class MMC_Wrapper(object):
         Closes the COM port previously opened by the MMC_COM_open function.
 
         """
-        res = self._dll.MMC_COM_close()
+        res = self.lib.MMC_COM_close()
         if res != 0:
             raise IOError('wrong return from dll')
 
@@ -134,18 +231,16 @@ class MMC_Wrapper(object):
         -------
         int: Number of characters in the input buffer
         """
-        res = self._dll.MMC_COM_EOF()
+        res = self.lib.MMC_COM_EOF()
         return res
 
     def MMC_COM_clear(self):
         """
         Clears the COM-port input buffer.
         """
-        res = self._dll.MMC_COM_clear()
+        res = self.lib.MMC_COM_clear()
         if res != 0:
             raise IOError('wrong return from dll')
-
-
 
     def MMC_getDLLversion(self):
         """
@@ -155,7 +250,7 @@ class MMC_Wrapper(object):
         int: version number as integer
 
         """
-        res = self._dll.MMC_getDLLversion()
+        res = self.lib.MMC_getDLLversion()
         return res
 
 
@@ -172,7 +267,7 @@ class MMC_Wrapper(object):
                 2,147,483,645 (maxint-2) : Error in _sendString
                 2,147,483,644 (maxint-3) : Error during conversion
         """
-        res = self._dll.MMC_getPos()
+        res = self.lib.MMC_getPos()
         return res
 
     def MDC_getPosErr(self):
@@ -188,7 +283,7 @@ class MMC_Wrapper(object):
                 2,147,483,644 (maxint-3) : Error during conversion
         """
 
-        res = self._dll.MDC_getPosErr()
+        res = self.lib.MDC_getPosErr()
         return res
 
     def MMC_getVal(self, command_ID: int):
@@ -217,7 +312,7 @@ class MMC_Wrapper(object):
                 2,147,483,645 (MaxInt-2) = sendString error
                 2,147,483,644 (MaxInt-3) = conversion error
         """
-        res = self._dll.MMC_getVal(command_ID)
+        res = self.lib.MMC_getVal(command_ID)
         return res
 
     def MMC_initNetwork(self, maxAxis: int=16):
@@ -237,13 +332,13 @@ class MMC_Wrapper(object):
         list: list of integers corresponding to the connected devices
         """
         devices = []
-        res = self._dll.MMC_initNetwork(maxAxis)
+        res = self.lib.MMC_initNetwork(maxAxis)
         if res < 0:
             raise IOError('wrong return from dll')
         if res > 0:
-            bits = Bits(int=res, length=32).bin
-            for ind in range(maxAxis):
-                if bits[-1-ind] == '1':
+            bits = bitarray(res)
+            for ind in range(len(bits)):
+                if bits[-1-ind] == 1:
                     devices.append(ind+1)
         return devices
 
@@ -265,7 +360,7 @@ class MMC_Wrapper(object):
                     2: Error, not connected
                     3: Error, sendString
         """
-        res = self._dll.MMC_moveA(axis, position)
+        res = self.lib.MMC_moveA(axis, position)
         return res
 
     def MMC_moveR(self, axis: int=0, shift: int=0):
@@ -285,7 +380,7 @@ class MMC_Wrapper(object):
                     2: Error, not connected
                     3: Error, sendString
         """
-        res = self._dll.MMC_moveR(axis, shift)
+        res = self.lib.MMC_moveR(axis, shift)
         return res
 
         
@@ -300,7 +395,7 @@ class MMC_Wrapper(object):
                     0: Not moving
                     1: moving
         """
-        res = self._dll.MDC_moving()
+        res = self.lib.MDC_moving()
         if res < 0:
             raise IOError('wrong return from dll')
         else:
@@ -316,7 +411,7 @@ class MMC_Wrapper(object):
                     0: Not moving
                     1: moving
         """
-        res = self._dll.MST_moving()
+        res = self.lib.MST_moving()
         if res < 0:
             raise IOError('wrong return from dll')
         else:
@@ -335,7 +430,7 @@ class MMC_Wrapper(object):
                 Device number of the controller that shall be selected for communication.
                 The device number or address can be set by the controller's front panel DIP switches.
         """
-        res = self._dll.MMC_setDevice(axis)
+        res = self.lib.MMC_setDevice(axis)
         if res ==1:
             raise IOError('Wrong axis number')
 
@@ -348,7 +443,7 @@ class MMC_Wrapper(object):
         ----------
         axis: (int) range 1 to 16 Device number of the controller that is to be selected for communication.
         """
-        res = self._dll.MMC_select(axis)
+        res = self.lib.MMC_select(axis)
         if res == 1:
             raise IOError('Wrong axis number')
         elif res == 2:
@@ -356,7 +451,7 @@ class MMC_Wrapper(object):
 
     def MMC_sendCommand(self,cmd):
         c_cmd = create_string_buffer(cmd.encode())
-        res = self._dll.MMC_sendCommand(byref(c_cmd))
+        res = self.lib.MMC_sendCommand(byref(c_cmd))
         if res == 114:
             raise IOError('Write error')
         elif res == 116:
@@ -368,7 +463,7 @@ class MMC_Wrapper(object):
         For C-862 Mercury™ (DC motor) C-863 Mercury™ (DC motor)
         Waits until the current move has terminated or interrupted by user command (function MCC_GlobalBreak).
         """
-        res = self._dll.MDC_waitStop()
+        res = self.lib.MDC_waitStop()
         if res == 1:
             raise IOError('Error, query')
         elif res == 2:
@@ -379,7 +474,7 @@ class MMC_Wrapper(object):
         For C-663 Mercury™-Step
         Waits until the current move has terminated or interrupted by user command (function MCC_GlobalBreak).
         """
-        res = self._dll.MST_waitStop()
+        res = self.lib.MST_waitStop()
         if res == 1:
             raise IOError('Error, query')
         elif res == 2:
@@ -391,6 +486,20 @@ class MMC_Wrapper(object):
         or _waitStop functions.
 
         """
-        res = self._dll.MMC_globalBreak()
+        res = self.lib.MMC_globalBreak()
         if res != 0:
             raise IOError('wrong return from dll')
+
+
+if __name__ == '__main__':
+    mmc = MMC_Wrapper(com_port='COM13')
+    try:
+        mmc.open()
+        devices = mmc.MMC_initNetwork(3)
+        mmc.MMC_select(devices[0])
+        print(mmc.getPos())
+    except Exception as e:
+        print(e)
+        pass
+    finally:
+        mmc.close()

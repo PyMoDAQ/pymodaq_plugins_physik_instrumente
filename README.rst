@@ -27,5 +27,12 @@ Below is the list of instruments included in this plugin
 Actuators
 +++++++++
 
-* **PI**: All stages compatible with the GCS2 library. Tested on E-816, C-863 (mercury DC/Stepper), C-663, E-545
-* **PI_MMC**: old controller and stages using the 32 bits MMC dll (requires 32bit python) C-862 controller
+* **PI**: All stages compatible with the GCS2 library. Tested on E-816, C-863 (mercury DC/Stepper), C-663, E-545.
+  Using a wrapper around the PI library for ease of use and reusability elsewhere
+* **PILegacy**: All stages compatible with the GCS2 library. Tested on E-816, C-863 (mercury DC/Stepper), C-663, E-545.
+  Using a direct communication through the PI library
+* **PI_MMCLegacy**: old controller and stages using the 32 bits MMC dll (requires 32bit python) C-862 controller. Using
+  direct access to the 32bits dll. Only compatible with python 32bits
+* **PI_MMC**: old controller and stages using the 32 bits MMC dll (requires 32bit python) C-862 controller. Using a
+  wrapper around the 32bits dlls (either direct on 32 bits python or through a server on 64bits python with the help of
+  the **msl-loadlib** package
