@@ -8,18 +8,23 @@ C-170 Redstone PILine® Controller
 
 """
 
-import sys, os
+import sys
+import os
 from qtpy.QtCore import QThread
-from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, comon_parameters_fun, main
-from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
-from easydict import EasyDict as edict
 
+from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, comon_parameters_fun, main, ThreadCommand
+from pymodaq.utils.logger import set_logger, get_module_name
+
+from pymodaq_plugins_physik_instrumente.utils import Config
 from pymodaq_plugins_physik_instrumente.hardware.PI.mmc_wrapper import MMC_Wrapper
+from pymodaq_plugins_physik_instrumente.hardware.PI.mmc_wrapper_client64 import MMCWrapperClient64
 
-#is64bit = sys.maxsize > 2**32
-if (sys.maxsize > 2**32):
-    raise Exception("It must a python 32 bit version")
+is64bit = sys.maxsize > 2**32
+if is64bit:
+    MMC_Wrapper = MMCWrapperClient64
 
+logger = set_logger(get_module_name(__file__))
+config = Config()
 ports = MMC_Wrapper.ports
 
 
@@ -44,112 +49,67 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
 
     com_ports = MMC_Wrapper.aliases
     controller_addresses = []
-    is_multiaxes=False
-    stage_names=[]
-    _epsilon = 0.1
+    is_multiaxes = False
+    stage_names = []
+    _epsilon = 0.01
 
-    params= [{'title': 'COM Ports:', 'name': 'com_port', 'type': 'list', 'limits': com_ports},
-           {'title': 'Controller_address:', 'name': 'controller_address', 'type': 'list', 'limits': controller_addresses},
-           {'title': 'Stages:', 'name': 'stage', 'type': 'list', 'limits': list(MMC_Wrapper.stages.keys())},
-           {'title': 'Closed loop?:', 'name': 'closed_loop', 'type': 'bool', 'value': True},
-           {'title': 'Controller ID:', 'name': 'controller_id', 'type': 'str', 'value': '', 'readonly': True},
-           ] + comon_parameters_fun(is_multiaxes, stage_names, epsilon=_epsilon)
+    params = [{'title': 'COM Ports:', 'name': 'com_port', 'type': 'list', 'limits': com_ports,
+               'value': config('mmc', 'com_port')},
+              {'title': 'Controller_address:', 'name': 'controller_address', 'type': 'list',
+               'limits': controller_addresses},
+              {'title': 'Stages:', 'name': 'stage', 'type': 'list', 'limits': list(MMC_Wrapper.stages.keys())},
+              {'title': 'Closed loop?:', 'name': 'closed_loop', 'type': 'bool', 'value': True},
+              {'title': 'Controller ID:', 'name': 'controller_id', 'type': 'str', 'value': '', 'readonly': True},
+              ] + comon_parameters_fun(is_multiaxes, stage_names, epsilon=_epsilon)
 
-    def __init__(self,parent=None,params_state=None):
+    def ini_attributes(self):
+        self.controller: MMC_Wrapper = None
 
-        super().__init__(parent,params_state)
-        self.settings.child(('epsilon')).setValue(0.01)
+    def commit_settings(self, param):
+        """ bActivate any parameter changes on the PI_GCS2 hardware.
 
-    def commit_settings(self,param):
+         Called after a param_tree_changed signal from DAQ_Move_main.
         """
-            | Activate any parameter changes on the PI_GCS2 hardware.
-            |
-            | Called after a param_tree_changed signal from DAQ_Move_main.
+        if param.name() == 'stage':
+            self.controller.stage = param.value()
 
-            =============== ================================ ========================
-            **Parameters**  **Type**                          **Description**
-            *param*         instance of pyqtgraph Parameter  The parameter to update
-            =============== ================================ ========================
-
-            See Also
-            --------
-            daq_utils.ThreadCommand, DAQ_Move_PI.enumerate_devices
-        """
-        try:
-            if param.name() == 'stage':
-                self.controller.stage = param.value()
-
-            elif param.name() == 'controller_address':
-                self.controller.MMC_select(param.value())
-                self.get_actuator_value()
-
-
-        except Exception as e:
-            self.emit_status(ThreadCommand("Update_Status", [getLineInfo()+ str(e), 'log']))
-
+        elif param.name() == 'controller_address':
+            self.controller.MMC_select(param.value())
+            self.get_actuator_value()
 
     def enumerate_devices(self):
         """
         """
         try:
-            devices = self.controller.MMC_initNetwork(3) #up to 3 controller in a row (could be 16 at max but useless)
+            devices = self.controller.MMC_initNetwork(3)  # up to 3 controller in a row (could be 16 at max but useless)
             self.settings.child('controller_address').setOpts(limits=devices)
             return devices
         except Exception as e:
-            self.emit_status(ThreadCommand("Update_Status",[getLineInfo()+ str(e),'log']))
+            logger.warning(str(e))
 
-    def ini_stage(self,controller=None):
-        """
-            Initialize the controller and stages (axes) with given parameters.
-            See Also
-            --------
-            DAQ_Move_PI.set_referencing, daq_utils.ThreadCommand
+    def ini_stage(self, controller: MMC_Wrapper = None):
         """
 
-        try:
-            device=""
-            # initialize the stage and its controller status
-            # controller is an object that may be passed to other instances of DAQ_Move_Mock in case
-            # of one controller controlling multiaxes
+        """
 
-            self.status.update(edict(info="",controller=None,initialized=False))
+        self.ini_stage_init(controller, MMC_Wrapper(stage=self.settings['stage'],
+                                                    com_port=self.settings['com_port']))
 
+        if self.settings['multiaxes', 'multi_status'] == "Master":
+            self.controller.open()
+            devices = self.enumerate_devices()
+            self.controller.MMC_select(devices[0])
 
-            #check whether this stage is controlled by a multiaxe controller (to be defined for each plugin)
+        self.get_actuator_value()
 
-            # if mutliaxes then init the controller here if Master state otherwise use external controller
-            if self.settings.child('multiaxes','ismultiaxes').value() and self.settings.child('multiaxes','multi_status').value()=="Slave":
-                if controller is None: 
-                    raise Exception('no controller has been defined externally while this axe is a slave one')
-                else:
-                    self.controller=controller
-            else: #Master stage
-                self.controller = MMC_Wrapper(com_port=self.settings.child('com_port').value())
-                self.controller.open()
-                devices = self.enumerate_devices()
-                self.controller.MMC_select(devices[0])
-
-            self.get_actuator_value()
-
-            self.status.controller=self.controller
-            self.status.info=""
-            self.status.controller=self.controller
-            self.status.initialized=True
-            return self.status
-
-
-        except Exception as e:
-            self.emit_status(ThreadCommand('Update_Status',[getLineInfo()+ str(e),'log']))
-            self.status.info=getLineInfo()+ str(e)
-            self.status.initialized=False
-            return self.status
-
+        info = "MMC stage initialized"
+        initialized = True
+        return info, initialized
 
     def close(self):
         """
-            close the current instance of PI_GCS2 instrument.
         """
-        self.controller.MMC_COM_close()
+        self.controller.close()
 
     def stop_motion(self):
         """
@@ -157,7 +117,7 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
             --------
             DAQ_Move_base.move_done
         """
-        self.controller.MMC_globalBreak()
+        self.controller.stop()
         self.move_done()
 
     def get_actuator_value(self):
@@ -173,36 +133,24 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
         self.current_position = pos
         return pos
 
-    def move_abs(self,position):
+    def move_abs(self, value: float):
         """
         """
 
-        position=self.check_bound(position)
-        self.target_position=position
+        value = self.check_bound(value)
+        self.target_value = value
 
-        position=self.set_position_with_scaling(position)
-        out=self.controller.moveAbs(self.settings.child('controller_address').value(), position)
+        value = self.set_position_with_scaling(value)
+        self.controller.moveAbs(self.settings['controller_address'], value)
 
-    def move_rel(self,position):
+    def move_rel(self, value: float):
+        """ Make the hardware relative move
         """
-            Make the hardware relative move of the PI_GCS2 instrument from the given position after thread command signal was received in DAQ_Move_main.
+        value = self.check_bound(self.current_value + value) - self.current_value
+        self.target_value = value + self.current_value
+        position = self.set_position_relative_with_scaling(value)
 
-            =============== ========= =======================
-            **Parameters**  **Type**   **Description**
-
-            *position*       float     The absolute position
-            =============== ========= =======================
-
-            See Also
-            --------
-            DAQ_Move_base.set_position_with_scaling, DAQ_Move_PI.set_referencing, DAQ_Move_base.poll_moving
-
-        """
-        position=self.check_bound(self.current_position+position)-self.current_position
-        self.target_position=position+self.current_position
-        position = self.set_position_relative_with_scaling(position)
-
-        out=self.controller.moveRel(self.settings.child('controller_address').value(), position)
+        self.controller.moveRel(self.settings['controller_address'], value)
 
     def move_home(self):
         """
@@ -225,4 +173,4 @@ class DAQ_Move_PI_MMC(DAQ_Move_base):
 
 
 if __name__ == '__main__':
-    main(__file__, init=True)
+    main(__file__, init=False)

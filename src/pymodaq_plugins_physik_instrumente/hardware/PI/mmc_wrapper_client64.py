@@ -1,8 +1,11 @@
 import sys
 import os
+from pathlib import Path
 
 from msl.loadlib import Client64
 from pymodaq_plugins_physik_instrumente.hardware.PI.mmc_wrapper import MMCBase
+
+here = Path(__file__).parent
 
 
 class MMCWrapperClient64(MMCBase, Client64):
@@ -13,7 +16,8 @@ class MMCWrapperClient64(MMCBase, Client64):
 
     def __init__(self, stage='M521DG', com_port='COM1', baud_rate=9600):
         MMCBase.__init__(self, stage, com_port, baud_rate)
-        Client64.__init__(self, module32='mmc_wrapper')
+        Client64.__init__(self, module32='mmc_wrapper',
+                          append_sys_path=str(here))
 
     def MMC_moveA(self, axis: int=0, position: int=0):
         return self.request32('MMC_moveA', axis, position)
@@ -44,6 +48,9 @@ class MMCWrapperClient64(MMCBase, Client64):
 
     def MMC_initNetwork(self, maxAxis: int=16):
         return self.request32('MMC_initNetwork', maxAxis)
+
+    def MMC_globalBreak(self):
+        return self.request32('MMC_globalBreak')
 
 
 if __name__ == '__main__':

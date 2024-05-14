@@ -79,7 +79,7 @@ class MMCBase(ABC):
     def units_to_counts(self,units):
         return int(units/(self.stages[self.stage]['cts_units_denom']/self.stages[self.stage]['cts_units_num']))
 
-    def moveAbs(self,axis, units):
+    def moveAbs(self, axis, units):
         """
         displacement in the selected stage units
         Parameters
@@ -106,6 +106,9 @@ class MMCBase(ABC):
 
     def close(self):
         self.MMC_COM_close()
+
+    def stop(self):
+        self.MMC_globalBreak()
 
     def find_home(self):
         self.MMC_sendCommand('FE1')
@@ -138,6 +141,10 @@ class MMCBase(ABC):
 
     @abstractmethod
     def MMC_COM_close(self):
+        pass
+
+    @abstractmethod
+    def MMC_globalBreak(self):
         pass
 
     @abstractmethod

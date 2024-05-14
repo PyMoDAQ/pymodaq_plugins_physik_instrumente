@@ -18,3 +18,6 @@ dll_names = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order t
 #    'E7XX_GCS_DLL': ['DIGITAL PIEZO CONTROLLER', 'E-710', 'E-761', ],
 #    'HEX_GCS_DLL': ['HEXAPOD', 'HEXAPOD_GCS1', ],
 #    'PI_G_GCS2_DLL': ['UNKNOWN', ],
+
+[mmc]
+com_port = 'COM13'
