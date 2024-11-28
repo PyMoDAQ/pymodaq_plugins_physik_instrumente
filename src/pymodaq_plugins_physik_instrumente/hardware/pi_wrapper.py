@@ -13,10 +13,12 @@ from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main, co
 from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
 from pymodaq.utils.parameter.utils import iter_children
 from pymodaq.utils.enums import BaseEnum
-
+from pymodaq.utils.logger import set_logger, get_module_name
 
 from pymodaq_plugins_physik_instrumente.utils import Config, get_devices_and_dlls
 
+
+logger = set_logger(get_module_name(__file__))
 
 config = Config()
 possible_dll_names = config['dll_names']
@@ -24,7 +26,6 @@ devices, devices_name, dll_names = get_devices_and_dlls(possible_dll_names)
 
 
 ConnectionEnum = BaseEnum('ConnectionEnum', ['RS232', 'USB', 'TCP/IP'])
-
 
 
 class PIWrapper:
@@ -96,7 +97,8 @@ class PIWrapper:
                     self.device.qSPA(self.axis_names[0], 0x07000601)[self.axis_names[0]][0x07000601]
         except GCSError:
             # library not compatible with this set of commands
-            pass
+            logger.info('Could not get axis units from the controller make sure you set them '
+                        'programmatically')
         return units
 
     @property
