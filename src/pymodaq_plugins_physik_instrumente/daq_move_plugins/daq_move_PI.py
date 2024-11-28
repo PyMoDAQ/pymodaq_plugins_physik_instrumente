@@ -40,7 +40,7 @@ class DAQ_Move_PI(DAQ_Move_base):
     """
 
     _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using
-    # self.controller_units = new_unit
+    # self.axis_unit = new_unit or self.axis_units = [...] if multiple axis and multiple units
 
     data_actuator_type = DataActuatorType['DataActuator']
     is_multiaxes = True
@@ -64,7 +64,7 @@ class DAQ_Move_PI(DAQ_Move_base):
             {'title': 'Min:', 'name': 'min', 'type': 'float'},
             {'title': 'Max:', 'name': 'max', 'type': 'float'},
             ]},
-        ] + comon_parameters_fun(is_multiaxes, stage_names, epsilon=_epsilon)
+        ] + comon_parameters_fun(is_multiaxes, axis_names=stage_names, epsilon=_epsilon)
 
     def ini_attributes(self):
         self.controller: PIWrapper = None
