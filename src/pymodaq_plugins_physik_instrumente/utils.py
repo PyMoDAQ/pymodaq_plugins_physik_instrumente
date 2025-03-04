@@ -4,16 +4,14 @@ Created the 31/08/2023
 
 @author: Sebastien Weber
 """
-from pathlib import Path
 from typing import Iterable
+from pathlib import Path
 
+from pymodaq_utils.config import BaseConfig, USER
 
 import serial.tools.list_ports as list_ports
 
-
-from pymodaq.utils.config import BaseConfig, USER
 from pymodaq.utils.daq_utils import is_64bits
-
 from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.gcsdll import get_gcstranslator_dir
 
