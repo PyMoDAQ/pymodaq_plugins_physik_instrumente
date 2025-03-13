@@ -6,8 +6,8 @@ from pathlib import Path
 from pymodaq.control_modules.move_utility_classes import (DAQ_Move_base, main, comon_parameters_fun,
     DataActuator, DataActuatorType)
 
-from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
-from pymodaq.utils.parameter.utils import iter_children
+from pymodaq_utils.utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
+from pymodaq_gui.parameter.utils import iter_children
 
 
 from pymodaq_plugins_physik_instrumente.utils import Config, get_devices_and_dlls
@@ -44,7 +44,8 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     data_actuator_type = DataActuatorType['DataActuator']
     is_multiaxes = True
-    stage_names = []
+    stage_names = ['']
+
     _epsilon = 0.01
 
     params = [
@@ -111,7 +112,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         self.set_axis_limits(self.controller.get_axis_limits(self.axis_name))
 
-        self.controller_units = self.controller.get_axis_units(self._controller_units)
+        self.axis_unit = self.controller.get_axis_units(self.axis_unit)
 
         info = f"connected on device:{self.settings['controller_id']}"
         initialized = True

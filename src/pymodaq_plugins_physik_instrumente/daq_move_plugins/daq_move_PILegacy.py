@@ -10,8 +10,8 @@ from pipython.pidevice.interfaces.gcsdll import get_gcstranslator_dir
 import serial.tools.list_ports as list_ports
 
 from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main, comon_parameters_fun
-from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
-from pymodaq.utils.parameter.utils import iter_children
+from pymodaq_utils.utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
+from pymodaq_gui.parameter.utils import iter_children
 
 
 from pymodaq_plugins_physik_instrumente.utils import Config, get_devices_and_dlls

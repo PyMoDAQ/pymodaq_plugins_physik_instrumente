@@ -11,7 +11,7 @@ C-170 Redstone PILine® Controller
 import sys, os
 from qtpy.QtCore import QThread
 from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, comon_parameters_fun, main
-from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo
+from pymodaq_utils.utils import ThreadCommand, getLineInfo
 from easydict import EasyDict as edict
 
 from pymodaq_plugins_physik_instrumente.hardware.PI.mmc_wrapper import MMC_Wrapper

@@ -7,13 +7,11 @@ import os
 from pipython import GCSDevice, GCSError
 from pipython.pidevice.interfaces.gcsdll import get_gcstranslator_dir
 
-import serial.tools.list_ports as list_ports
 
-from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, main, comon_parameters_fun
-from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
-from pymodaq.utils.parameter.utils import iter_children
-from pymodaq.utils.enums import BaseEnum
-from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq_utils.enums import BaseEnum
+from pymodaq_utils.logger import set_logger, get_module_name
+from pymodaq_data import Unit
+from pint.errors import UndefinedUnitError
 
 from pymodaq_plugins_physik_instrumente.utils import Config, get_devices_and_dlls
 
@@ -98,7 +96,18 @@ class PIWrapper:
         except GCSError:
             # library not compatible with this set of commands
             logger.info('Could not get axis units from the controller make sure you set them '
-                        'programmatically')
+                        f'programmatically, set as default to: {default}')
+        try:
+            if not (Unit(units).is_compatible_with('m') or Unit(units).is_compatible_with('°')):
+                units = units.lower()  # One saw units returned as MM... which is MegaMolar
+                if not (Unit(units).is_compatible_with('m') or Unit(units).is_compatible_with('°')):
+                    logger.info(f'The units returned from the controller: {units} is not compatible'
+                                f'with either length or degree (dimensionless)')
+                    units = default
+        except UndefinedUnitError:
+            logger.info(f'The units returned from the controller: {units} is not defined in the '
+                        f'pint registry')
+            units = default
         return units
 
     @property

@@ -13,7 +13,7 @@ import os
 from qtpy.QtCore import QThread
 
 from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, comon_parameters_fun, main, ThreadCommand
-from pymodaq.utils.logger import set_logger, get_module_name
+from pymodaq_utils.logger import set_logger, get_module_name
 
 from pymodaq_plugins_physik_instrumente.utils import Config
 from pymodaq_plugins_physik_instrumente.hardware.PI.mmc_wrapper import MMC_Wrapper
