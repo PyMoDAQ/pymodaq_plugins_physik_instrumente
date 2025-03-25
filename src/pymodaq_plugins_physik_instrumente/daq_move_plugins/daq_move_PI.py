@@ -50,7 +50,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     params = [
         {'title': 'Connection_type:', 'name': 'connect_type', 'type': 'list',
-         'value': 'USB', 'values': ConnectionEnum.names()},
+         'value': 'USB', 'limits': ConnectionEnum.names()},
         {'title': 'Devices:', 'name': 'devices', 'type': 'list', 'limits': devices},
         {'title': 'Daisy Chain Options:', 'name': 'dc_options', 'type': 'group', 'children': [
             {'title': 'Use Daisy Chain:', 'name': 'is_daisy', 'type': 'bool', 'value': False},
@@ -105,7 +105,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         self.settings.child('controller_id').setValue(self.controller.identify())
         self.axis_names = self.controller.axis_names
-        self.controller.set_referencing(self.axis_name)
+        # self.controller.set_referencing(self.axis_name)
 
         # check servo status:
         self.settings.child('closed_loop').setValue(self.controller.get_servo(self.axis_name))
