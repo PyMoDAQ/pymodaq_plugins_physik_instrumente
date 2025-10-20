@@ -94,14 +94,15 @@ class DAQ_Move_PI(DAQ_Move_base):
         """
 
         """
-        self.ini_stage_init(old_controller=controller, new_controller=PIWrapper())
-
-        if self.settings['multiaxes', 'multi_status'] == "Master":
+        if self.is_master:
+            self.controller = PIWrapper()
             self.controller.is_daisy = self.settings['dc_options', 'is_daisy']
             self.controller.is_daisy_master = self.settings['dc_options', 'is_daisy_master']
             self.controller.connection_type = ConnectionEnum[self.settings['connect_type']]
             self.controller.device_id = devices_name[devices.index(self.settings['devices'])]
             self.controller.connect_device()
+        else:
+            self.controller = controller
 
         self.settings.child('controller_id').setValue(self.controller.identify())
         self.axis_names = self.controller.axis_names
