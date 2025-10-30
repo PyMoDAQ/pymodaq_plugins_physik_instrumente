@@ -39,10 +39,10 @@ class DAQ_Move_PI(DAQ_Move_base):
     'PI_G_GCS2_DLL': ['UNKNOWN', ],
     """
 
-    _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using
+    _controller_units = 'um'  # dependent on the stage type so to be updated accordingly using
     # self.axis_unit = new_unit or self.axis_units = [...] if multiple axis and multiple units
 
-    data_actuator_type = DataActuatorType['DataActuator']
+    data_actuator_type = DataActuatorType.DataActuator
     is_multiaxes = True
     stage_names = ['']
 
@@ -101,11 +101,15 @@ class DAQ_Move_PI(DAQ_Move_base):
             self.controller.connection_type = ConnectionEnum[self.settings['connect_type']]
             self.controller.device_id = devices_name[devices.index(self.settings['devices'])]
             self.controller.connect_device()
+
         else:
             self.controller = controller
 
         self.settings.child('controller_id').setValue(self.controller.identify())
         self.axis_names = self.controller.axis_names
+        self.axis_units = self.controller.get_axis_units()
+        self.epsilons = [self._epsilon for _ in range(len(self.axis_names))]
+
         # self.controller.set_referencing(self.axis_name)
 
         # check servo status:
@@ -113,13 +117,13 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         self.set_axis_limits(self.controller.get_axis_limits(self.axis_name))
 
-        self.axis_unit = self.controller.get_axis_units(self.axis_unit)
+
 
         info = f"connected on device:{self.settings['controller_id']}"
         initialized = True
         return info, initialized
 
-    def set_axis_limits(self, limits: Tuple[float]):
+    def set_axis_limits(self, limits: Tuple[float, float]):
         self.settings.child('axis_infos', 'min').setValue(limits[0])
         self.settings.child('axis_infos', 'max').setValue(limits[1])
 
@@ -129,22 +133,24 @@ class DAQ_Move_PI(DAQ_Move_base):
         """
         self.controller.close()
 
-    def stop_motion(self):
+    def stop_motion(self, *args, **kwargs):
         """
 
         """
         self.controller.stop()
         self.move_done()
 
-    def get_actuator_value(self):
+    def get_actuator_value(self) -> DataActuator:
         """
 
         """
-        pos = DataActuator(self.axis_name, data=self.controller.get_axis_position(self.axis_name))
+        pos = DataActuator(self.axis_name,
+                           data=self.controller.get_axis_position(self.axis_name),
+                           units=self.axis_unit)
         pos = self.get_position_with_scaling(pos)
         return pos
 
-    def move_abs(self, position):
+    def move_abs(self, position: DataActuator):
         """
 
         """
@@ -153,7 +159,7 @@ class DAQ_Move_PI(DAQ_Move_base):
         position = self.set_position_with_scaling(position)
         out = self.controller.move_absolute(self.axis_name, position.value())
 
-    def move_rel(self, position):
+    def move_rel(self, position: DataActuator):
         """
 
         """
@@ -163,7 +169,7 @@ class DAQ_Move_PI(DAQ_Move_base):
         position = self.set_position_relative_with_scaling(position)
         self.controller.move_relative(self.axis_name, position.value())
 
-    def move_home(self):
+    def move_home(self, *args):
         """
 
             See Also
@@ -175,5 +181,5 @@ class DAQ_Move_PI(DAQ_Move_base):
 
 
 if __name__ == '__main__':
-    main(__file__, init=False)
+    main(__file__, init=True)
 
