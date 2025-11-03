@@ -1,5 +1,5 @@
 
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Iterable
 from pathlib import Path
 
 import numpy as np
@@ -86,28 +86,32 @@ class PIWrapper:
         """ Get the list of axis of the controller as a list of string"""
         return self.device.axes
 
-    def get_axis_units(self, default='mm'):
-        units = default
+    def get_axis_units(self, default='mm') -> Iterable[str]:
+
+        units = []
         try:
             # get units (experimental)
             if hasattr(self.device, 'qSPA'):
-                units = \
-                    self.device.qSPA(self.axis_names[0], 0x07000601)[self.axis_names[0]][0x07000601]
+                for axis_name in self.axis_names:
+                    units.append(
+                        self.device.qSPA(axis_name, 0x07000601)[axis_name][0x07000601])
         except GCSError:
             # library not compatible with this set of commands
             logger.info('Could not get axis units from the controller make sure you set them '
                         f'programmatically, set as default to: {default}')
-        try:
-            if not (Unit(units).is_compatible_with('m') or Unit(units).is_compatible_with('°')):
-                units = units.lower()  # One saw units returned as MM... which is MegaMolar
-                if not (Unit(units).is_compatible_with('m') or Unit(units).is_compatible_with('°')):
-                    logger.info(f'The units returned from the controller: {units} is not compatible'
-                                f'with either length or degree (dimensionless)')
-                    units = default
-        except UndefinedUnitError:
-            logger.info(f'The units returned from the controller: {units} is not defined in the '
-                        f'pint registry')
-            units = default
+            units = [default for _ in range(len(self.axis_names))]
+        for ind_unit, unit in enumerate(units):
+            try:
+                if not (Unit(unit).is_compatible_with('m') or Unit(unit).is_compatible_with('°')):
+                    unit = unit.lower()  # One saw units returned as MM... which is MegaMolar
+                    if not (Unit(unit).is_compatible_with('m') or Unit(unit).is_compatible_with('°')):
+                        logger.info(f'The units returned from the controller: {units} is not compatible'
+                                    f'with either length or degree (dimensionless)')
+                        units[ind_unit] = default
+            except UndefinedUnitError:
+                logger.info(f'The units returned from the controller: {units} is not defined in the '
+                            f'pint registry')
+                units[ind_unit] = default
         return units
 
     @property
