@@ -40,6 +40,8 @@ class DAQ_Move_PI_MMCLegacy(DAQ_Move_base):
         daq_utils.ThreadCommand
     """
 
+    supported_platforms = ('win32',)  # the MMC Windows DLL
+
     _controller_units = 'mm'  # dependent on the stage type so to be updated accordingly using self.controller_units = new_unit
 
     com_ports = MMC_Wrapper.aliases
