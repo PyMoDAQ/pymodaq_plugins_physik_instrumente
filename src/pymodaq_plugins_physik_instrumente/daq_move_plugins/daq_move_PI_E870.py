@@ -14,7 +14,7 @@ class DAQ_Move_PI_E870(DAQ_Move_base):
     Only USB connexion is implemented.
     Tested with PI_E870_4G: we consider 4 axes.
     """
-    _controller_units = 'step'
+    _controller_units = ''
     gcs_device = GCSDevice()
     devices = gcs_device.EnumerateUSB()  # we only look for the controllers that are plugged with USB.
     is_multiaxes = True
