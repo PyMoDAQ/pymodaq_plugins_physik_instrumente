@@ -20,6 +20,7 @@ dll_names = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order t
 #    'PI_G_GCS2_DLL': ['UNKNOWN', ],
 
 default_units = 'mm'  # units of the axes when the controller cannot give them, e.g. 'um' for an E-517 piezo controller
+axis_names = []  # axes offered before connection (Dashboard experiments), e.g. ['A', 'B', 'C'] for an E-517
 
 [mmc]
 com_port = 'COM13'

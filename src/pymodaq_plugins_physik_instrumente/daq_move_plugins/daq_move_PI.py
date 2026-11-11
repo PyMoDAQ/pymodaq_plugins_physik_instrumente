@@ -43,7 +43,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     data_actuator_type = DataActuatorType.DataActuator
     is_multiaxes = True
-    stage_names = ['']
+    _axis_names = config['axis_names'] or ['']  # from the configuration, or known only once connected
 
     _epsilon = 0.01
 
@@ -64,7 +64,7 @@ class DAQ_Move_PI(DAQ_Move_base):
             {'title': 'Min:', 'name': 'min', 'type': 'float'},
             {'title': 'Max:', 'name': 'max', 'type': 'float'},
             ]},
-        ] + comon_parameters_fun(is_multiaxes, axis_names=stage_names, epsilon=_epsilon)
+        ] + comon_parameters_fun(is_multiaxes, axis_names=_axis_names, epsilon=_epsilon)
 
     def ini_attributes(self):
         self.controller: PIWrapper = None
