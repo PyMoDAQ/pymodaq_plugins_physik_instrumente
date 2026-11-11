@@ -107,7 +107,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         self.settings.child('controller_id').setValue(self.controller.identify())
         self.axis_names = self.controller.axis_names
-        self.axis_units = self.controller.get_axis_units()
+        self.axis_units = self.controller.get_axis_units(default=config['default_units'])
         self.epsilons = [self._epsilon for _ in range(len(self.axis_names))]
 
         # self.controller.set_referencing(self.axis_name)

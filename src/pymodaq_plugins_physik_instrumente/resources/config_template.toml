@@ -19,5 +19,7 @@ dll_names = ['PI_GCS2_DLL', 'E816_DLL', 'C7XX_GCS_DLL']  # dll to use in order t
 #    'HEX_GCS_DLL': ['HEXAPOD', 'HEXAPOD_GCS1', ],
 #    'PI_G_GCS2_DLL': ['UNKNOWN', ],
 
+default_units = 'mm'  # units of the axes when the controller cannot give them, e.g. 'um' for an E-517 piezo controller
+
 [mmc]
 com_port = 'COM13'
