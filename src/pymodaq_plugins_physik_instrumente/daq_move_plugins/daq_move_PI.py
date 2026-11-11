@@ -7,7 +7,6 @@ from pymodaq.control_modules.move_utility_classes import (DAQ_Move_base, main, c
     DataActuator, DataActuatorType)
 
 from pymodaq_utils.utils import ThreadCommand, getLineInfo, is_64bits, find_keys_from_val
-from pymodaq_gui.parameter.utils import iter_children
 
 
 from pymodaq_plugins_physik_instrumente.utils import Config, get_devices_and_dlls
@@ -44,7 +43,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
     data_actuator_type = DataActuatorType.DataActuator
     is_multiaxes = True
-    stage_names = ['']
+    _axis_names = config['axis_names'] or ['']  # from the configuration, or known only once connected
 
     _epsilon = 0.01
 
@@ -65,7 +64,7 @@ class DAQ_Move_PI(DAQ_Move_base):
             {'title': 'Min:', 'name': 'min', 'type': 'float'},
             {'title': 'Max:', 'name': 'max', 'type': 'float'},
             ]},
-        ] + comon_parameters_fun(is_multiaxes, axis_names=stage_names, epsilon=_epsilon)
+        ] + comon_parameters_fun(is_multiaxes, axis_names=_axis_names, epsilon=_epsilon)
 
     def ini_attributes(self):
         self.controller: PIWrapper = None
@@ -79,9 +78,8 @@ class DAQ_Move_PI(DAQ_Move_base):
             if param.name() == 'use_joystick':
                 self.controller.use_joystick(param.value())
 
-            elif param.name() == 'axis' and param.name() in iter_children(self.settings.child('multiaxes')):
-                self.settings.child('closed_loop').setValue(self.controller.get_servo(param.value()))
-                self.controller.set_referencing(self.axis_name)
+            elif param.name() == 'axis':
+                self.settings.child('closed_loop').setValue(self.controller.get_servo(self.axis_name))
                 self.set_axis_limits(self.controller.get_axis_limits(self.axis_name))
 
             elif param.name() == 'closed_loop':
@@ -107,7 +105,7 @@ class DAQ_Move_PI(DAQ_Move_base):
 
         self.settings.child('controller_id').setValue(self.controller.identify())
         self.axis_names = self.controller.axis_names
-        self.axis_units = self.controller.get_axis_units()
+        self.axis_units = self.controller.get_axis_units(default=config['default_units'])
         self.epsilons = [self._epsilon for _ in range(len(self.axis_names))]
 
         # self.controller.set_referencing(self.axis_name)

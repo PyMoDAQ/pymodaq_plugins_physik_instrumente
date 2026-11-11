@@ -277,7 +277,7 @@ class PIWrapper:
 
     def stop(self):
         """ Stop the motion of the connected device"""
-        self.device.StopAll()
+        self.device.StopAll(noraise=True)  # the controller then reports error 10 (stopped by command), expected
 
     def get_axis_position(self, axis_name: str) -> float:
         """ Get the specified axis position
